@@ -97,9 +97,13 @@ GRID-1 REAL_RUNTIME_VERIFIED
 GRID-2 REAL_RUNTIME_VERIFIED
 GRID-3 CLOSED_CONTRACT_LIMITATION (Slice 99B correction)
 
-CheckBox unbound:
+CheckBox unbound (역사적 widget/bootstrap evidence, legacy 출력 기준):
 REAL_RUNTIME_VERIFIED
 (WIDGET/BOOTSTRAP SEMANTICS)
+
+CheckBox unbound accepted-v6 rendering-equivalence:
+NOT_VERIFIED (Slice 99D correction 1 -- 위 역사적 검증은 legacy WebSquareGenerator 출력 기준이며, 현재
+accepted v6 CheckBox 출력(xf:select appearance="full")과의 렌더링/runtime 동등성은 별도로 증명되지 않음)
 
 Auto page init:
 CLOSED_CONTRACT_LIMITATION (Slice 99D -- accepted path never generates ev:onpageload, 0 consumers)
@@ -112,9 +116,13 @@ PASS
 Defect 2(CONTENT_NOT_READY)는 Slice 99A에서, GRID-3(다중 Format)는 Slice 99B correction에서, CheckBox
 dataset-bound는 Slice 99C에서, `ev:onpageload` 자동 page-init은 Slice 99D에서 각각
 CLOSED_CONTRACT_LIMITATION으로 종결(`docs/OFFLINE-USER-GUIDE.md` 항목 13 참고 -- CheckBox는 unbound는
-그대로 지원, id를 가리키는 BindItem이 있으면 propid/값 계약 미증명으로 렌더러 도달 전 fail-closed;
-`ev:onpageload`는 accepted path가 애초에 생성하지 않아 의존하는 산출물이 0건). 남은 제품/Runtime
-known gap 없음.
+파이프라인이 구조적으로 현재 형태(`xf:select appearance="full"`)를 그대로 발행하지만, id를 가리키는
+BindItem이 있으면(dataset-bound) propid/값 계약 미증명으로 렌더러 도달 전 fail-closed; `ev:onpageload`는
+accepted path가 애초에 생성하지 않아 의존하는 산출물이 0건). 남은 제품/Runtime known gap 1건: CheckBox
+unbound의 accepted-v6 rendering-equivalence가 `NOT_VERIFIED`다(Slice 99D correction 1에서 새로 식별,
+`docs/OFFLINE-USER-GUIDE.md` 항목 13-5 참고) -- 이는 dataset-bound 계약 한계나 auto page-init 종결과는
+별개의 관심사이며, auto page-init 종결 자체를 재검토하는 것은 아니다. 이 밖에 `V5_RUNTIME_REGRESSION_REQUIRED`/
+`CLASS_MERGE_RUNTIME_REQUIRED`(`OFFLINE-IMPORT-MANIFEST.md` 참고)는 기존 standing 그대로 유지된다.
 
 별도 certification blocker 1건: Target JDK 1.8.0_111 확보/검증(BLOCKED_BY_DISTRIBUTION — 폐쇄망에서
 별도 확보 필요, `verify-offline.*`의 1단계 게이트로 확인).

@@ -265,17 +265,22 @@ verifier는 legacy 변환 출력에 의존하는 절차이며, 현재 `verify-of
 - Dataset: **13/13**
 - Grid: GRID-1(구조+interaction) / GRID-2 REAL_RUNTIME_VERIFIED
 - Static / Edit: 정적 value 렌더링 REAL_RUNTIME_VERIFIED
-- CheckBox(unbound): **REAL_RUNTIME_VERIFIED (WIDGET/BOOTSTRAP SEMANTICS)** — `addItem(value,label)`
-  호출, 실제 `<input>`+`<label>` 생성, click→checked→`getValue()` round-trip을 실 엔진에서 확인
-  (역사적 검증 기록, 항목 13 참고). accepted v6 path의 현재 CheckBox 출력은 `ev:onpageload`/script
-  bootstrap을 전혀 생성하지 않으므로(항목 13-4, Slice 99D CLOSED_CONTRACT_LIMITATION) 자동
-  page-init 신뢰성 문제 자체가 발행된 산출물에 적용되지 않는다.
+- CheckBox(unbound) — 역사적 widget/bootstrap evidence: **REAL_RUNTIME_VERIFIED** — 과거 legacy
+  `WebSquareGenerator` 출력 기준으로 `addItem(value,label)` 호출, 실제 `<input>`+`<label>` 생성,
+  click→checked→`getValue()` round-trip을 실 엔진에서 확인(역사적 검증 기록, 항목 13-5 참고). **이
+  검증은 legacy 출력에 대한 것이며, 현재 accepted v6 path의 CheckBox 출력(`<xf:select
+  appearance="full"/>`)이 이 역사적 widget 경로와 렌더링/runtime 측면에서 동등한지는 별도로
+  검증되지 않았다**(`CHECKBOX_UNBOUND_ACCEPTED_V6_RENDERING_EQUIVALENCE = NOT_VERIFIED`, 항목 13-5
+  참고). accepted v6 CheckBox 출력이 `ev:onpageload`/script bootstrap을 전혀 생성하지 않는다는
+  사실(항목 13-4, Slice 99D CLOSED_CONTRACT_LIMITATION)은 이 rendering-equivalence 문제와는 별개이며
+  자동 page-init 신뢰성 문제 자체가 발행된 산출물에 적용되지 않는다는 판정은 그대로 유지된다.
 - Phase1 SHA: **STATIC_VERIFIED / PASS**
 
 ## 13. 현재 남은 제한
 
-**제품/Runtime known gap**(Defect 2는 Slice 99A, GRID-3는 Slice 99B correction, CheckBox dataset-bound는
-Slice 99C, `ev:onpageload` 자동 page-init은 Slice 99D에서 각각 종결):
+**제품/Runtime known gap**(항목 1은 Slice 99A, 항목 2는 Slice 99B correction, 항목 3은 Slice 99C, 항목
+4는 Slice 99D에서 각각 `CLOSED_CONTRACT_LIMITATION`으로 종결; 항목 5는 Slice 99D correction 1에서 새로
+식별된 CheckBox accepted-v6 rendering-equivalence 문제로 `NOT_VERIFIED`인 채 아직 열려 있음):
 1. Defect 2 — `CONTENT_NOT_READY` false-negative: **CLOSED_CONTRACT_LIMITATION**(Slice 99A). Tab 동적
    navigation(`someTab.setUrl(...)`/`addTab(...)` 등)은 `identifier.member` 형태라 `SourceScriptAnalyzer`가
    항상 `UNSUPPORTED_SYNTAX`로 결정적으로 거부하며, `TargetWebSquarePipeline`은 이 시점에 전체 변환을
@@ -333,6 +338,19 @@ Slice 99C, `ev:onpageload` 자동 page-init은 Slice 99D에서 각각 종결):
    종결 근거다(`TargetPayloadBehaviorFinalizerTest`의 `testOnloadEventNeverMapsToTargetOnpageload`,
    `TargetWebSquarePipelineTest`의 `testIntegrationCheckBoxUnboundSucceedsWithoutPageInitLifecycle`/
    `testIntegrationAllSevenFamiliesReachFinalXml`로 생성 XML에 `onpageload` 부재를 검증).
+5. CheckBox(unbound) accepted-v6 rendering-equivalence: **NOT_VERIFIED**(Slice 99D correction 1에서
+   새로 식별, 아직 열려 있음). 역사적 widget/bootstrap evidence(`w2:checkbox`, `addItem(value,label)`,
+   실제 `<input>`+`<label>` 생성, click-checked-`getValue()` round-trip)는 legacy
+   `WebSquareGenerator` 출력에 대해서만 확인된 것이다
+   (`CHECKBOX_UNBOUND_HISTORICAL_RUNTIME_EVIDENCE = REAL_RUNTIME_VERIFIED_WIDGET_BOOTSTRAP_SEMANTICS`).
+   accepted v6 path는 동일 CheckBox를 `<xf:select appearance="full"/>`(XForms, 자식/ref/items 없음)로
+   렌더하며, 이 역사적 경로와 구조적으로 다르다. 두 표현이 실제 렌더링/interaction 측면에서 동등한지는
+   증명되지 않았다(`CHECKBOX_UNBOUND_ACCEPTED_V6_RENDERING_EQUIVALENCE = NOT_VERIFIED`). 역사적 검증
+   기록이 현재 accepted v6 출력의 검증 authority가 되는 것은 아니다
+   (`HISTORICAL_CHECKBOX_RUNTIME_EVIDENCE_IS_ACCEPTED_V6_RENDERING_EQUIVALENCE_AUTHORITY = FALSE`).
+   이는 CheckBox dataset-bound 계약 한계(항목 3, binding 증명 부재로 fail-closed되는 별개 경로)나
+   `ev:onpageload` 자동 page-init 종결(항목 4, producer/consumer 부재로 `CLOSED_CONTRACT_LIMITATION`)
+   과는 별개의 관심사이며, 이 항목이 항목 4의 auto-page-init 종결을 다시 여는 것은 아니다.
 
 **별도 certification blocker 1건**:
 - exact JDK 1.8.0_111 확보/검증 상태: **BLOCKED_BY_DISTRIBUTION**. 이 프로젝트를 패키징한 온라인 PC에서

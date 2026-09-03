@@ -51,7 +51,7 @@ wrapper id(`grp_resultArea`/`grp_main`)에 대한 기존 script/XJS reference는
 (`NEW_WRAPPER_SCRIPT_REFERENCE = 0`) — runtime risk가 0으로 증명된 것은 아니며, 단지 기존
 script/XJS에서 이 wrapper-ID를 참조하는 코드가 발견되지 않았다는 의미다.
 
-## 현재 known product/runtime gaps (6건, 항목 1은 Slice 99A, 항목 2는 Slice 99B correction, 항목 3은 Slice 99C, 항목 4는 Slice 99D에서 종결)
+## 현재 known product/runtime gaps (7건, 항목 1은 Slice 99A, 항목 2는 Slice 99B correction, 항목 3은 Slice 99C, 항목 4는 Slice 99D에서 종결, 항목 5는 Slice 99D correction 1에서 새로 식별되어 아직 열려 있음)
 
 1. **Defect 2** — `CONTENT_NOT_READY` false-negative: **CLOSED_CONTRACT_LIMITATION**(Slice 99A,
    `docs/OFFLINE-USER-GUIDE.md` 항목 13 참고 — Tab 동적 navigation은 SourceScriptAnalyzer가 결정적으로
@@ -60,17 +60,24 @@ script/XJS에서 이 wrapper-ID를 참조하는 코드가 발견되지 않았다
    (Slice 99B correction, `docs/OFFLINE-USER-GUIDE.md` 항목 13 참고 — Format 1개는 완전 지원, 2개
    이상은 활성 Format을 고를 증명된 source selector가 없어 렌더러 도달 전에 fail-closed)
 3. **CheckBox dataset-bound**: **CLOSED_CONTRACT_LIMITATION**
-   (Slice 99C, `docs/OFFLINE-USER-GUIDE.md` 항목 13 참고 — unbound는 그대로 지원, CheckBox id를
-   가리키는 `<BindItem>`이 있으면 propid/값 계약 미증명으로 렌더러 도달 전에 fail-closed)
+   (Slice 99C, `docs/OFFLINE-USER-GUIDE.md` 항목 13 참고 — 파이프라인은 구조적으로 unbound CheckBox의
+   현재 표현(`xf:select appearance="full"`)을 그대로 발행하지만, CheckBox id를 가리키는 `<BindItem>`이
+   있으면 propid/값 계약 미증명으로 렌더러 도달 전에 fail-closed)
 4. **`ev:onpageload` 자동 page-init 신뢰성**: **CLOSED_CONTRACT_LIMITATION**
    (Slice 99D, `docs/OFFLINE-USER-GUIDE.md` 항목 13 참고 — accepted path는 `ev:onpageload`를
    생성하지 않으며 이에 의존하는 accepted-path 산출물이 0건이라 자동 발화 신뢰성 문제 자체가
    적용되지 않는다)
-5. **`V5_RUNTIME_REGRESSION_REQUIRED`** — `TabRuntimeScriptGenerator`의
+5. **CheckBox unbound accepted-v6 rendering-equivalence**: **NOT_VERIFIED**(Slice 99D correction 1,
+   `docs/OFFLINE-USER-GUIDE.md` 항목 13-5 참고 — 역사적 widget/bootstrap evidence
+   (`CHECKBOX_UNBOUND_HISTORICAL_RUNTIME_EVIDENCE = REAL_RUNTIME_VERIFIED_WIDGET_BOOTSTRAP_SEMANTICS`)는
+   legacy `WebSquareGenerator` 출력 기준이며, 현재 accepted v6 CheckBox 출력(`xf:select
+   appearance="full"`)과의 렌더링/runtime 동등성은 증명되지 않았다. 항목 3(dataset-bound 계약 한계)이나
+   항목 4(auto page-init 종결)와는 별개의 관심사이며, 항목 4의 종결을 재검토하는 것이 아니다)
+6. **`V5_RUNTIME_REGRESSION_REQUIRED`** — `TabRuntimeScriptGenerator`의
    `component('grp_content').getScope()`가 `xf:group` root에서 실제 v5 런타임에 동작하는지 미검증
    (이번 Root/Body 구조 변경으로 `grp_content`의 id/namespace/직접 스크립트 계약은 변경되지
    않았으므로 이 gap 자체는 이번 변경으로 새로 발생한 것이 아니다 — 기존 gap 그대로 승계)
-6. **`CLASS_MERGE_RUNTIME_REQUIRED`**(`NON_BLOCKING_CURRENT_CORPUS`) — cssclass+btn_cm/wq_gvw
+7. **`CLASS_MERGE_RUNTIME_REQUIRED`**(`NON_BLOCKING_CURRENT_CORPUS`) — cssclass+btn_cm/wq_gvw
    병합 실사례가 corpus/폐쇄망 확인 대상 화면에 없어 미검증
 
 ## 이 Freeze에 포함되지 않은 것
