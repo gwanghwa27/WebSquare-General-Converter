@@ -611,7 +611,8 @@ public class TargetPayloadExtractorTest {
 
     /**
      * CHECKBOX_BINDING_FALSE_POSITIVE_ISOLATION_TEST(1/2) -- 다른 컴포넌트(Edit)를 가리키는
-     * BindItem이 있어도, 그와 무관한 CheckBox는 정상 추출된다(잘못된 correlation 반례).
+     * BindItem이 있어도 그와 무관한 이 CheckBox를 dataset-bound로 잘못 분류하지 않는다. 그래도
+     * binding 문제가 없어 unbound로 확정되면 Slice 99E 사유로 동일하게 fail-closed된다.
      */
     private static void testCheckBoxBindingFalsePositiveEditTargetStillFailsForUnboundReasonOnly() throws Exception {
         Document doc = newDocument();
@@ -634,7 +635,8 @@ public class TargetPayloadExtractorTest {
 
     /**
      * CHECKBOX_BINDING_FALSE_POSITIVE_ISOLATION_TEST(2/2) -- 다른 CheckBox(compid가 문서에 실존
-     * 하지 않음, unresolved)를 가리키는 BindItem이 있어도 이 CheckBox는 정상 추출된다.
+     * 하지 않음, unresolved)를 가리키는 BindItem이 있어도 이 CheckBox를 dataset-bound로 잘못
+     * 분류하지 않는다. 그래도 unbound 확정 후 Slice 99E 사유로 동일하게 fail-closed된다.
      */
     private static void testCheckBoxBindingFalsePositiveOtherCheckBoxTargetStillFailsForUnboundReasonOnly()
             throws Exception {
@@ -768,9 +770,9 @@ public class TargetPayloadExtractorTest {
     }
 
     /**
-     * UNRELATED_AMBIGUOUS_BINDING_ISOLATION_TEST -- compid가 문서 안에서 2개 Element(둘 다 이
-     * CheckBox는 아님)에 동시에 매치되면 ambiguous로 남지만, 이 CheckBox는 후보 목록에 없으므로
-     * 영향받지 않고 정상 추출된다.
+     * UNRELATED_AMBIGUOUS_BINDING_ISOLATION_TEST -- compid가 2개 Element(둘 다 이 CheckBox는
+     * 아님)에 매치되어 ambiguous로 남아도, 후보 목록에 없는 이 CheckBox는 dataset-bound ambiguous
+     * 사유로 잘못 거부되지 않는다. 다만 unbound 확정 후 Slice 99E 사유로 동일하게 fail-closed된다.
      */
     private static void testCheckBoxUnrelatedAmbiguousBindingStillFailsForUnboundReasonOnly() throws Exception {
         Document doc = newDocument();
@@ -841,7 +843,8 @@ public class TargetPayloadExtractorTest {
 
     /**
      * UNRELATED_AMBIGUOUS_BINDING_ISOLATION_TEST(Edit 후보만) -- compid 후보가 서로 다른 두
-     * Edit(같은 id)뿐이고 CheckBox는 후보에 없으면, 무관한 CheckBox는 정상 추출된다.
+     * Edit(같은 id)뿐이고 CheckBox는 후보에 없으면 dataset-bound ambiguous 사유로 잘못 거부되지
+     * 않는다. 그래도 unbound로 확정된 뒤 Slice 99E 사유로 동일하게 fail-closed된다.
      */
     private static void testCheckBoxUnrelatedAmbiguousEditCandidatesStillFailForUnboundReasonOnly() throws Exception {
         Document doc = newDocument();

@@ -70,11 +70,12 @@ script/XJS에서 이 wrapper-ID를 참조하는 코드가 발견되지 않았다
 5. **CheckBox unbound accepted-v6 rendering-equivalence**: **CLOSED_CONTRACT_LIMITATION**(Slice 99E,
    `docs/OFFLINE-USER-GUIDE.md` 항목 13-5 참고 — 역사적 widget/bootstrap evidence
    (`CHECKBOX_UNBOUND_HISTORICAL_RUNTIME_EVIDENCE = REAL_RUNTIME_VERIFIED_WIDGET_BOOTSTRAP_SEMANTICS`)는
-   legacy `WebSquareGenerator` 출력 기준이며, 현재 accepted v6 CheckBox 출력(`xf:select
-   appearance="full"`)과의 렌더링/runtime 동등성 증거가 repository 안에 없고 real WebSquare runtime
-   환경도 없어 실행 검증도 불가능하다. 따라서 unbound CheckBox도 dataset-bound(항목 3)와 마찬가지로
-   렌더러 도달 전에 명시적으로 fail-closed하며(`checkbox_unbound_rendering_equivalence_not_proven`),
-   항목 4(auto page-init 종결)의 판정을 재검토하는 것은 아니다)
+   legacy `WebSquareGenerator` 출력 기준이며, Slice 99E에서 감사한 pre-99E accepted-v6 attempted
+   structural representation(`xf:select appearance="full"`)과의 렌더링/runtime 동등성 증거가
+   repository 안에 없고 real WebSquare runtime 환경도 없어 실행 검증도 불가능했다. 따라서 unbound
+   CheckBox도 dataset-bound(항목 3)와 마찬가지로 렌더러 도달 전에 명시적으로
+   fail-closed하며(`checkbox_unbound_rendering_equivalence_not_proven`), 현재 accepted path는 이
+   xf:select 구조를 더 이상 발행하지 않는다. 항목 4(auto page-init 종결)의 판정을 재검토하는 것은 아니다)
 6. **`V5_RUNTIME_REGRESSION_REQUIRED`** — `TabRuntimeScriptGenerator`의
    `component('grp_content').getScope()`가 `xf:group` root에서 실제 v5 런타임에 동작하는지 미검증
    (이번 Root/Body 구조 변경으로 `grp_content`의 id/namespace/직접 스크립트 계약은 변경되지

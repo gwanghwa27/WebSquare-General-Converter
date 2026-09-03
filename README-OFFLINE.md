@@ -102,10 +102,12 @@ REAL_RUNTIME_VERIFIED
 (WIDGET/BOOTSTRAP SEMANTICS)
 
 CheckBox unbound accepted-v6 rendering-equivalence:
-CLOSED_CONTRACT_LIMITATION (Slice 99E -- 위 역사적 검증은 legacy WebSquareGenerator 출력 기준이며, 현재
-accepted v6 CheckBox 출력(xf:select appearance="full")과 렌더링/runtime 동등하다는 증거가 repository
-안에 없고 real WebSquare runtime 환경도 이 프로젝트에 없어 실행 검증도 불가능하므로, unbound CheckBox도
-dataset-bound와 동일하게 렌더러 도달 전에 명시적으로 fail-closed한다)
+CLOSED_CONTRACT_LIMITATION (Slice 99E -- 위 역사적 검증은 legacy WebSquareGenerator 출력 기준이며,
+Slice 99E에서 감사한 pre-99E accepted-v6 attempted structural representation(xf:select
+appearance="full")과 렌더링/runtime 동등하다는 증거가 repository 안에 없고 real WebSquare runtime
+환경도 이 프로젝트에 없어 실행 검증도 불가능했으므로, unbound CheckBox도 dataset-bound와 동일하게
+렌더러 도달 전에 명시적으로 fail-closed한다. 현재 accepted path는 이 xf:select 구조를 더 이상 발행하지
+않는다)
 
 Auto page init:
 CLOSED_CONTRACT_LIMITATION (Slice 99D -- accepted path never generates ev:onpageload, 0 consumers)

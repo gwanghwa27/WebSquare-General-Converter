@@ -333,12 +333,16 @@ verifier는 legacy 변환 출력에 의존하는 절차이며, 현재 `verify-of
    해당 없음; (c) 실제 자동 발화: 과거(레거시 `WebSquareGenerator`, `pageLoadStatements`/`addItem`
    채널) 조사에서도 "확인하지 못함"으로 스스로 기록됐고, 그 채널 자체가 accepted v6 path에서
    `WebSquareGenerator`와 함께 도달 불가; (d) 지원 context 신뢰성: 위 이유로 해당 없음. 즉 accepted
-   path에는 자동 page-init에 의존하는 산출물이 **0건**이다 -- unbound CheckBox는 빈
-   `<xf:select appearance="full"/>`로 렌더되어 script/head 콘텐츠 없이도 발행되며(`addItem` 호출
-   없음), BIND-1도 `WebSquareGenerator` 전용 수정이라 accepted path에 승계되지 않았다. "자동 발화가
-   검증됐다"는 주장이 아니라, accepted path가 애초에 이 메커니즘을 만들지 않는다는 구조적 사실이
-   종결 근거다(`TargetPayloadBehaviorFinalizerTest`의 `testOnloadEventNeverMapsToTargetOnpageload`,
-   `TargetWebSquarePipelineTest`의 `testIntegrationCheckBoxUnboundFailsClosedNoPartialOutput`/
+   path에는 자동 page-init에 의존하는 산출물이 **0건**이다 -- 이 조사 시점(Slice 99D)에는 unbound
+   CheckBox가 빈 `<xf:select appearance="full"/>`로 렌더되어 script/head 콘텐츠 없이 발행되는
+   pre-99E accepted-v6 attempted structural representation이었고(`addItem` 호출 없음), BIND-1도
+   `WebSquareGenerator` 전용 수정이라 accepted path에 승계되지 않았다. Slice 99E에서 이 unbound
+   CheckBox 경로 자체가 렌더러 도달 전 fail-closed로 닫혔으므로(항목 5 참고) 현재는 CheckBox 관련
+   accepted-path 산출물이 아예 존재하지 않으며, 이 결론(자동 page-init 의존 산출물 0건)은 그대로
+   유지된다. "자동 발화가 검증됐다"는 주장이 아니라, accepted path가 애초에 이 메커니즘을 만들지
+   않는다는 구조적 사실이 종결 근거다(`TargetPayloadBehaviorFinalizerTest`의
+   `testOnloadEventNeverMapsToTargetOnpageload`, `TargetWebSquarePipelineTest`의
+   `testIntegrationCheckBoxUnboundFailsClosedNoPartialOutput`/
    `testIntegrationAllSevenFamiliesReachFinalXml`로 생성 XML에 `onpageload` 부재를 검증).
 5. CheckBox(unbound) accepted-v6 rendering-equivalence: **CLOSED_CONTRACT_LIMITATION**(Slice 99E).
    역사적 widget/bootstrap evidence(`w2:checkbox`, `addItem(value,label)`, 실제 `<input>`+`<label>`
@@ -347,11 +351,14 @@ verifier는 legacy 변환 출력에 의존하는 절차이며, 현재 `verify-of
    REAL_RUNTIME_VERIFIED_WIDGET_BOOTSTRAP_SEMANTICS`). WebSquare dev pack 문서(`ROOT/cm/template/
    snippets/10_입력폼/10_06 Checkbox.xml` 등)의 공식 권장 패턴은 `xf:select renderType="checkboxgroup"`
    + `xf:choices`/`xf:item`(다중 항목 그룹 위젯)이며, XPlatform CheckBox(단일 boolean)와 의미가 달라
-   그대로 재사용할 수 없다 -- accepted v6가 실제로 발행하는 빈 `<xf:select appearance="full"/>`(자식/
-   ref/item 없음)에 대한 target 문서/실 runtime 근거는 repository 안에 전혀 없다. real WebSquare
-   runtime 환경이 이 프로젝트에 포함되어 있지 않아(항목 14 참고) 실제 실행 검증도 수행할 수 없다.
-   따라서 evidence 없이 "구조적으로 well-formed하니 동작할 것"이라고 추측하지 않고, unbound CheckBox도
-   dataset-bound와 동일하게 렌더러 도달 전에 명시적으로 fail-closed한다
+   그대로 재사용할 수 없다 -- Slice 99E에서 감사한 pre-99E accepted-v6 renderer 동작(폐쇄 이전
+   `AtomicWebSquareRenderer`가 실제로 만들던 빈 `<xf:select appearance="full"/>`, 자식/ref/item 없음)에
+   대한 target 문서/실 runtime 근거는 repository 안에 전혀 없었다. real WebSquare runtime 환경이 이
+   프로젝트에 포함되어 있지 않아(항목 14 참고) 실제 실행 검증도 수행할 수 없었다. 따라서 evidence
+   없이 "구조적으로 well-formed하니 동작할 것"이라고 추측하지 않고, Slice 99E부터는 unbound CheckBox도
+   dataset-bound와 동일하게 렌더러 도달 전에 명시적으로 fail-closed한다 -- 그 pre-99E xf:select 구조는
+   더 이상 accepted path의 현재 산출물이 아니며, 현재 accepted path는 CheckBox(bound/unbound 불문)에
+   대해 어떤 target XML도 발행하지 않는다
    (`checkbox_unbound_rendering_equivalence_not_proven`, `TargetPayloadExtractorTest`/
    `AtomicWebSquareRendererTest`/`TargetWebSquarePipelineTest`로 검증). 역사적 검증 기록이 현재
    accepted v6 출력의 검증 authority가 되는 것은 아니다
