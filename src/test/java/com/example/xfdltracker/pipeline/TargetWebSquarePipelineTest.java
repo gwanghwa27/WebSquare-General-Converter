@@ -651,12 +651,18 @@ public class TargetWebSquarePipelineTest {
         Files.write(xfdl.toPath(), content.getBytes(java.nio.charset.StandardCharsets.UTF_8));
         File output = tempOutput();
         boolean threw = false;
+        String reason = null;
         try {
             new TargetWebSquarePipeline().convert(xfdl, output, new TargetPipelineConfig(TargetRuntimeProfile.empty()));
         } catch (IllegalStateException e) {
             threw = true;
+            reason = e.getMessage();
         }
         assertTrue("grid3-ambiguous: pipeline fails closed before final publication", threw);
+        // MULTI_FORMAT_PIPELINE_EXPLICIT_REASON_TEST -- 렌더러 코드/화면 id가 아니라 evidence 상수
+        // 문자열 자체가 실패 사유임을 확인한다(단순 IllegalStateException 발생 여부만으로는 부족).
+        assertTrue("grid3-ambiguous: exception reason names the explicit ambiguity evidence",
+                reason != null && reason.contains("ambiguous_multi_format_no_proven_selector"));
         assertTrue("grid3-ambiguous: no partial/invalid target XML is ever published", !output.exists());
     }
 

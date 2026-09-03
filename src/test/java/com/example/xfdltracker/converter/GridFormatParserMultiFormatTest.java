@@ -24,6 +24,7 @@ public class GridFormatParserMultiFormatTest {
         testNoFormatsElementUnresolvedNonFatal();
         testEmptyFormatsElementUnresolvedNonFatal();
         testDifferingTopologyBetweenFormatsStillUniformlyAmbiguous();
+        testMultiFormatMalformedSecondaryCannotBypassAmbiguityContract();
 
         if (failures == 0) {
             System.out.println("ALL TESTS PASSED");
@@ -206,6 +207,46 @@ public class GridFormatParserMultiFormatTest {
         GridFormatParser.GridFormatSelection selection = new GridFormatParser().resolveFormat(grid);
         assertTrue("differing-topology: NOT resolved despite structural asymmetry", !selection.isResolved());
         assertEquals("differing-topology: state", "MULTI_FORMAT_SELECTION_UNRESOLVED", selection.getState().name());
+    }
+
+    /**
+     * MULTI_FORMAT_MALFORMED_SECONDARY_CANNOT_BYPASS_AMBIGUITY_CONTRACT_TEST -- 두번째 Format이
+     * malformed 좌표(숫자 아닌 col/row)를 가져도, 다중 Format은 애초에 topology를 parse하지
+     * 않으므로 malformed 여부와 무관하게 여전히 명시적으로 ambiguous(unresolved)다.
+     */
+    private static void testMultiFormatMalformedSecondaryCannotBypassAmbiguityContract() throws Exception {
+        Document doc = newDocument();
+        Element grid = doc.createElement("Grid");
+        Element formats = doc.createElement("Formats");
+        formats.appendChild(oneColumnFormat(doc, "wellFormed", "bind:OK"));
+
+        Element malformed = doc.createElement("Format");
+        malformed.setAttribute("id", "malformed");
+        Element malformedColumns = doc.createElement("Columns");
+        Element malformedColumn = doc.createElement("Column");
+        malformedColumn.setAttribute("size", "100");
+        malformedColumns.appendChild(malformedColumn);
+        malformed.appendChild(malformedColumns);
+        Element malformedBand = doc.createElement("Band");
+        malformedBand.setAttribute("id", "body");
+        Element malformedCell = doc.createElement("Cell");
+        malformedCell.setAttribute("col", "not-a-number");
+        malformedCell.setAttribute("row", "also-not-a-number");
+        malformedCell.setAttribute("text", "bind:MALFORMED");
+        malformedBand.appendChild(malformedCell);
+        malformed.appendChild(malformedBand);
+        formats.appendChild(malformed);
+        grid.appendChild(formats);
+
+        GridFormatParser.GridFormatSelection selection = new GridFormatParser().resolveFormat(grid);
+        assertTrue("malformed-secondary: NOT resolved despite malformed secondary Format",
+                !selection.isResolved());
+        assertEquals("malformed-secondary: state", "MULTI_FORMAT_SELECTION_UNRESOLVED",
+                selection.getState().name());
+        assertTrue("malformed-secondary: requires explicit upstream ambiguity failure",
+                selection.requiresExplicitAmbiguityFailure());
+        assertTrue("malformed-secondary: well-formed first Format is not implicitly selected",
+                selection.getFormat() == null);
     }
 
     private static Element oneColumnFormat(Document doc, String id, String bodyCellText) {

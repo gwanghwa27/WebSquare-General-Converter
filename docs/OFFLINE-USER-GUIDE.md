@@ -284,12 +284,15 @@ verifier는 legacy 변환 출력에 의존하는 절차이며, 현재 `verify-of
    비동기 readiness 오탐(race condition)을 만들어낼 런타임 브리지 자체가 accepted 아키텍처에서는
    생성되지 않는다 -- 안전하지 않은 재현 대신 명시적 fail-closed 계약으로 닫힌 상태다.
 2. GRID-3 — 다중 Format(default/alternate) 정의: **CLOSED_CONTRACT_LIMITATION**(Slice 99B
-   correction). Format이 1개면 기존과 동일하게 완전히 지원된다. Format이 2개 이상 정의돼 있으면
-   모두 파싱은 되지만(`GridFormatParser#resolveFormat`), 그중 어느 것이 실제 사용할 "활성
-   Format"인지 결정적으로 고를 수 있는 source-side selector가 증명되지 않았다(id 문자열 의미,
-   선언 순서, Grid의 어떤 attribute도 evidence 없음 -- Slice 99B correction 재조사 결과). 따라서
-   Format이 2개 이상이면 항상 명시적으로 unresolved로 남고, `TargetPayloadExtractor`가 렌더러
-   도달 전에 결정적으로 fail-closed되어 대상 XML을 전혀 발행하지 않는다(`GridFormatParserMultiFormatTest`,
+   correction). Format이 1개면 그 topology(Columns/Rows/Bands/Cells)가 완전히 파싱/resolve되어
+   기존과 동일하게 지원된다. Format이 2개 이상 정의돼 있으면 `GridFormatParser#resolveFormat`은
+   Format 정의 개수를 감지하고 id 중복만 검사할 뿐, 그중 어느 것이 실제 사용할 "활성 Format"인지
+   결정적으로 고를 수 있는 source-side selector가 증명되지 않았으므로(id 문자열 의미, 선언 순서,
+   Grid의 어떤 attribute도 evidence 없음 -- Slice 99B correction 재조사 결과) 어떤 Format의
+   topology도 활성으로 선택/parse하지 않는다 -- "모든 Format이 파싱/검증됐다"는 주장은 하지
+   않는다. 따라서 Format이 2개 이상이면 활성 topology 선택 이전 단계에서 항상 명시적으로
+   unresolved로 남고, `TargetPayloadExtractor`가 렌더러 도달 전에 결정적으로 fail-closed되어
+   대상 XML을 전혀 발행하지 않는다(`GridFormatParserMultiFormatTest`,
    `TargetPayloadExtractorTest`의 `testGridAmbiguousMultiFormatFailsClosedBeforeRenderer`,
    `TargetWebSquarePipelineTest`의 `testIntegrationAmbiguousMultiFormatGridFailsClosedNoPartialOutput`로
    검증). 이는 "동적 전환 제한"이 아니라 selector 증거 부재에 따른 계약상 한계이며, 향후 source

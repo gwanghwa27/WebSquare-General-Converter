@@ -102,9 +102,9 @@ public class GridFormatParser {
     }
 
     /**
-     * {@link #resolveFormat}의 closed 결과. {@code PARSED_FORMAT_DEFINITIONS}(Format이 몇 개
-     * 파싱됐는지)와 {@code RESOLVED_ACTIVE_FORMAT}(실제 사용할 Format 하나가 결정됐는지)을 state로
-     * 명시적으로 구분한다 -- 둘을 evidence 문자열만으로 암묵 구분하지 않는다.
+     * {@link #resolveFormat}의 closed 결과. state는 selection-resolution 상태만 나타낸다 --
+     * Format이 몇 개 감지(DETECTED)됐는지와 실제 활성 Format 하나가 topology까지 parse/resolve됐는지는
+     * 서로 다른 사실이며, 다중 Format은 감지만 되고 topology는 절대 parse되지 않는다.
      */
     public static final class GridFormatSelection {
 
