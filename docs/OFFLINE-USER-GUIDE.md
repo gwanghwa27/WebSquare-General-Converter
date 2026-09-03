@@ -126,6 +126,17 @@ CommonRuntimeCapabilityCatalog.createSeeded()` 기준), `#`으로 시작하는 �
 비교가 현재 HEAD와 일치한다는 뜻은 아니다 — 그 manifest는 별개의 candidate 패키징 스냅샷이며 이
 batch 실행 경로의 authority가 아니다(`closed-network-import\README-KO.md` 항목 7 참고).
 
+**저장소 소유 줄바꿈 계약(Slice 99F Correction 5)**: `verify-standalone.bat`/`closed-network-import\
+BATCH-CONVERT.cmd`를 비롯한 이 프로젝트의 모든 `*.bat`/`*.cmd`는 저장소 루트의 `.gitattributes`가
+`-text`로 선언한다 — Git이 이 파일들의 줄바꿈을 커밋/체크아웃 어느 방향으로도 절대 변환하지 않고
+raw blob 바이트를 그대로 보존한다는 뜻이다. `text eol=crlf`만으로는 실제 blob 저장 바이트가 바뀌지
+않는다는 사실이 외부 실험으로 확인됐으므로(텍스트 파일은 저장 시 항상 LF로 정규화됨) 반드시
+`-text`가 필요하다(Slice 99F Correction 6). `-text` 선언 자체는 값을 강제하지 않으므로, 이 일곱 개
+스크립트의 실제 커밋 대상 바이트를 CRLF로 직접 구체화(materialize)해 두었다 — 즉 저장소가 소유하는
+계약은 `-text` 선언과 실제 CRLF 커밋 바이트 두 가지를 모두 포함한다. 이 계약 덕분에 exact-JDK
+게이트는 개발자의 `core.autocrlf` 설정이나 raw Git blob을 어떻게 꺼내 실행하는지와 무관하게 항상
+정확히 작동한다(별도의 checkout 정규화나 수동 CRLF 변환을 요구하지 않음).
+
 `closed-network-import\BATCH-CONVERT.sh`도 있지만 이는 cmd.exe를 거쳐 위 Windows batch를 그대로
 호출하는 best-effort 브리지일 뿐이다 — Windows batch(`.cmd`)가 이 프로젝트의 정규 platform
 contract이며, `.sh`는 그 gate를 재구현하지 않고 다만 대신 못 통과시킬 뿐이다(cmd.exe/cygpath를 이

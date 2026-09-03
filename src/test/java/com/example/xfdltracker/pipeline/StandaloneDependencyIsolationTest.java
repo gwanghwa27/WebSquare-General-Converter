@@ -88,6 +88,10 @@ public class StandaloneDependencyIsolationTest {
         testJavaLexicalCommentExtractorHandlesInlineAndStringLiterals();
         testProjectOwnedJavaCommentContentLinesHaveKoreanContext();
         testProjectOwnedScriptCommentContentLinesHaveKoreanContext();
+        testGitAttributesDeclaresNonTextPolicyForWindowsScripts();
+        testAuthoritativeExactJdkGateScriptsAreCoveredByNonTextPolicy();
+        testGovernedWindowsScriptsHaveCrlfOnlyRawBytes();
+        testGovernedWindowsScriptInventoryHasNoUndeclaredAddition();
 
         if (failures == 0) {
             System.out.println("ALL TESTS PASSED");
@@ -1170,6 +1174,131 @@ public class StandaloneDependencyIsolationTest {
         }
         assertTrue("comment-language-guard: no script comment content line is English-only "
                 + "(SCRIPT_COMMENT_CONTENT_LINES_WITH_ASCII_ALPHA_AND_NO_KOREAN = 0)", violations == 0);
+    }
+
+    /**
+     * Slice 99F Correction 5 -- {@code .gitattributes}가 {@code *.bat}/{@code *.cmd}를 {@code
+     * -text}로 선언하는지 저장소 소유 파일 자체에서 직접 검증한다(개발자 개인의 core.autocrlf
+     * 값에 의존하지 않음, {@code eol=crlf}만으로는 blob 바이트가 안 바뀜을 외부 실증함).
+     */
+    private static void testGitAttributesDeclaresNonTextPolicyForWindowsScripts() throws Exception {
+        File root = repositoryRoot();
+        File attrFile = new File(root, ".gitattributes");
+        assertTrue("gitattributes-policy: .gitattributes exists at repository root", attrFile.isFile());
+        if (!attrFile.isFile()) {
+            return;
+        }
+        java.util.Map<String, java.util.Set<String>> patternToAttrs = parseGitAttributes(attrFile);
+        assertTrue("gitattributes-policy: *.bat pattern declares -text",
+                patternToAttrs.containsKey("*.bat") && patternToAttrs.get("*.bat").contains("-text"));
+        assertTrue("gitattributes-policy: *.cmd pattern declares -text",
+                patternToAttrs.containsKey("*.cmd") && patternToAttrs.get("*.cmd").contains("-text"));
+    }
+
+    /**
+     * exact-JDK 게이트 경로(verify-standalone.bat, closed-network-import\BATCH-CONVERT.cmd)가
+     * 실제로 그 non-text 정책이 적용되는 확장자에 해당하는지 개별적으로 다시 확인한다(패턴이
+     * 좁혀지거나 파일이 재배치되어도 이 핵심 두 파일이 커버에서 빠지면 실패해야 한다).
+     */
+    private static void testAuthoritativeExactJdkGateScriptsAreCoveredByNonTextPolicy() throws Exception {
+        File root = repositoryRoot();
+        File attrFile = new File(root, ".gitattributes");
+        assertTrue("gitattributes-coverage: .gitattributes exists", attrFile.isFile());
+        if (!attrFile.isFile()) {
+            return;
+        }
+        java.util.Map<String, java.util.Set<String>> patternToAttrs = parseGitAttributes(attrFile);
+        String[] authoritativeScripts = {
+                "verify-standalone.bat",
+                "closed-network-import/BATCH-CONVERT.cmd"
+        };
+        for (String relativePath : authoritativeScripts) {
+            assertTrue("gitattributes-coverage: " + relativePath + " exists",
+                    new File(root, relativePath).isFile());
+            String extensionPattern = relativePath.endsWith(".bat") ? "*.bat" : "*.cmd";
+            java.util.Set<String> attrs = patternToAttrs.get(extensionPattern);
+            assertTrue("gitattributes-coverage: " + relativePath + " covered by " + extensionPattern
+                            + " -text", attrs != null && attrs.contains("-text"));
+        }
+    }
+
+    /**
+     * Slice 99F Correction 6 -- 7개 governed Windows script의 raw 바이트를 디스크에서 직접 읽어
+     * CRLF만 있는지 검증한다({@code core.autocrlf}/git 명령을 전혀 사용하지 않음, {@code
+     * .gitattributes} 존재만으로 통과시키지 않고 실제 파일 바이트 자체를 확인한다).
+     */
+    private static final String[] GOVERNED_WINDOWS_SCRIPTS = {
+            "build.bat",
+            "closed-network-import/BATCH-CONVERT.cmd",
+            "closed-network-import/BUILD-AND-VERIFY.cmd",
+            "convert-sample.bat",
+            "tools/build-pipeline-trace.bat",
+            "verify-offline.bat",
+            "verify-standalone.bat"
+    };
+
+    private static void testGovernedWindowsScriptsHaveCrlfOnlyRawBytes() throws Exception {
+        File root = repositoryRoot();
+        for (String relativePath : GOVERNED_WINDOWS_SCRIPTS) {
+            File f = new File(root, relativePath);
+            assertTrue("crlf-invariant: " + relativePath + " exists", f.isFile());
+            if (!f.isFile()) {
+                continue;
+            }
+            byte[] raw = Files.readAllBytes(f.toPath());
+            int crlf = 0, bareLf = 0, bareCr = 0;
+            for (int i = 0; i < raw.length; i++) {
+                if (raw[i] == '\r') {
+                    if (i + 1 < raw.length && raw[i + 1] == '\n') {
+                        crlf++;
+                        i++;
+                    } else {
+                        bareCr++;
+                    }
+                } else if (raw[i] == '\n') {
+                    bareLf++;
+                }
+            }
+            assertTrue("crlf-invariant: " + relativePath + " has at least one CRLF pair", crlf > 0);
+            assertTrue("crlf-invariant: " + relativePath + " has zero bare LF (found " + bareLf + ")",
+                    bareLf == 0);
+            assertTrue("crlf-invariant: " + relativePath + " has zero bare CR (found " + bareCr + ")",
+                    bareCr == 0);
+        }
+    }
+
+    /** governed 7-경로 목록 밖에 새 {@code *.bat}/{@code *.cmd}가 조용히 추가되지 않았는지 확인한다. */
+    private static void testGovernedWindowsScriptInventoryHasNoUndeclaredAddition() throws Exception {
+        File root = repositoryRoot();
+        List<String> allScripts = new ArrayList<String>();
+        collectScriptFiles(root, root, allScripts);
+        java.util.Set<String> governed = new java.util.LinkedHashSet<String>(Arrays.asList(GOVERNED_WINDOWS_SCRIPTS));
+        for (String relativePath : allScripts) {
+            if (!(relativePath.endsWith(".bat") || relativePath.endsWith(".cmd"))) {
+                continue;
+            }
+            assertTrue("crlf-invariant-inventory: " + relativePath + " is covered by the governed "
+                            + "seven-script byte-policy check", governed.contains(relativePath));
+        }
+    }
+
+    private static java.util.Map<String, java.util.Set<String>> parseGitAttributes(File attrFile) throws Exception {
+        String content = new String(Files.readAllBytes(attrFile.toPath()), StandardCharsets.UTF_8);
+        java.util.Map<String, java.util.Set<String>> result = new java.util.LinkedHashMap<String, java.util.Set<String>>();
+        for (String rawLine : content.split("\r\n|\n", -1)) {
+            String line = rawLine.trim();
+            if (line.length() == 0 || line.startsWith("#")) {
+                continue;
+            }
+            String[] tokens = line.split("\\s+");
+            if (tokens.length < 2) {
+                continue;
+            }
+            java.util.Set<String> attrs = new java.util.LinkedHashSet<String>(
+                    Arrays.asList(tokens).subList(1, tokens.length));
+            result.put(tokens[0], attrs);
+        }
+        return result;
     }
 
     private static File repositoryRoot() {
