@@ -38,9 +38,11 @@ raw XFDL
 이 경로는 프로그램적(Java API) 진입점이다 — 호출자가 자신의 실제 대상 환경에 맞는
 `TargetPipelineConfig`/`TargetRuntimeProfile`을 직접 구성해서 넘겨야 하며, 이 프로젝트는 임의의
 "기본" runtime profile을 발명하지 않는다(모든 runtime capability가 사용 가능하다고 가정하는 permissive
-기본값도 제공하지 않는다). 범용 배치 CLI(`convert-sample.*`처럼 여러 파일을 한 번에 처리하는 스크립트)를
-이 경로로 기계적으로 재배선하지 않은 이유도 동일하다 — 임의 대상 환경을 대표하는 단일 기본
-`TargetRuntimeProfile`이 존재하지 않기 때문이다.
+기본값도 제공하지 않는다). 여러 파일을 한 번에 처리하는 batch CLI는 Slice 99F에서
+`closed-network-import\BATCH-CONVERT.cmd`/`.sh` + `com.example.xfdltracker.batch.ClosedNetworkBatchCli`로
+제공된다(항목 2-2 참고) — 이 CLI도 임의 대상 환경을 대표하는 단일 "기본" `TargetRuntimeProfile`을
+발명하지 않으며, 호출자가 명시적으로 제공한 profile 파일만 사용한다(파일이 비어 있으면
+`TargetRuntimeProfile.empty()`와 동등하게 처리될 뿐, 암묵적 기본값이 채워지는 것은 아니다).
 
 **지원하는 7개 필수 family**: `GRID`, `TAB_CONTROL`, `SPLIT_LAYOUT`, `SEARCH_AREA`,
 `BUSINESS_TABLE`, `TITLE_BAR`, `BUTTON_GROUP`.
@@ -62,6 +64,72 @@ raw XFDL
 `verify-standalone.bat`에 위임하는 thin wrapper로, exact-JDK gate를 포함해 동일한 검증 결과를
 낸다(legacy `XPlatformProjectConverter`/Phase1 SHA verifier 단계는 항목 10 표에 여전히 기술되어 있지만
 verify-offline이 더 이상 그 단계들을 실행하지 않는다 — 항목 10 안내를 참고).
+
+## 2-2. 폐쇄망 batch 변환 entrypoint (Slice 99F)
+
+여러 XFDL 파일을 한 번에 변환하려면 `closed-network-import\BATCH-CONVERT.cmd`(**정규 platform**,
+Windows batch)를 쓴다:
+
+```
+closed-network-import\BATCH-CONVERT.cmd inputRoot outputRoot runtimeProfileFile
+```
+
+`inputRoot` 아래에서 확장자가 정확히 `.xfdl`인 일반 파일만 real path 기준으로 재귀 탐색한다(결정적
+정렬). **발견된 항목이 심볼릭 링크(`Files.isSymbolicLink`)로 판명되면 확장자/대상 종류(파일인지
+디렉터리인지)/대상이 root 안인지 밖인지와 무관하게 항상 그 자리에서 명시적으로 fail-closed한다**(조용히
+건너뛰지 않음, Slice 99F Correction 2). 그와 별개로, 같은 real 디렉터리가 서로 다른 lexical 경로로
+두 번 발견되면(root 밖으로 진짜 이탈했든, root 조상으로 되돌아가는 진짜 순환이든, root **안에서**
+`real/`과 그리로 향하는 `alias`처럼 단순히 같은 대상을 두 경로로 노출하는 것이든 전부 포함) 그 자리에서
+fail-closed한다 — 어느 경로도 "먼저 왔다고 이기는" 일은 없다. **주의**: Windows junction/reparse
+alias는 `Files.isSymbolicLink()`만으로는 감지되지 않는 경우가 있음을 이 machine에서 실측
+확인했다(`isSymbolicLink()=false, isDirectory()=true`로 보고됨) — 그래서 위 real-path 재확인이
+symlink 검사와 별도로, 그리고 필수로 존재한다.
+
+`inputRoot`/`outputRoot`는 서로 같아서도, 어느 방향으로든 서로 nested되어도 안 되며(모두 real path
+기준으로 판정), 상대경로를 보존한 채 `outputRoot`에 `.xml`로 확장자만 바꿔 발행하되 계획된 output의
+최종 real path가 `outputRoot` 밖으로 벗어나면 동일하게 거부한다. **그것만으로는 충분하지 않다(Slice
+99F Correction 2)**: `outputRoot`부터 목표 파일의 부모 디렉터리까지 이미 존재하는 각 구간의 real
+path를 순서대로 다시 확인해, 그 중 하나라도 symlink/junction 등으로 실제 다른 곳을 가리키면 -- 그
+alias를 통과한 최종 real path가 우연히 여전히 `outputRoot` 안에 있더라도 -- 발행을 거부한다(아직
+없는 구간을 미리 만들어서 검사하지 않음). 각 구간이 "존재하는지"는 `NOFOLLOW_LINKS` 기준으로
+판정한다(Slice 99F Correction 3) -- 대상이 지워진 dangling symlink/junction도 그 자리를 실제로
+차지하고 있는 filesystem entry이므로 "아직 안 만들어짐"으로 착각하지 않으며, 심볼릭 링크 구간은
+대상 해석과 무관하게 항상 거부하고, junction 등이 real path 해석 자체에 실패하면(끊어진 대상) 그
+역시 존재하지 않는 것으로 넘기지 않고 명시적으로 거부한다(이상은 **중간 부모 경로 구간**에 대한
+검사다). **최종 목표 경로 자체**(정확한 `*.xml` pathname)도 동일하게 `NOFOLLOW_LINKS` 기준으로
+"이미 점유돼 있는지"를 확인한다(Slice 99F Correction 4) -- 일반 파일/디렉터리/심볼릭 링크/dangling
+심볼릭 링크/junction 등 entry 종류와 무관하게 그 이름 자리에 무엇이든 이미 있으면 발행을 거부하며,
+대상이 지워진 dangling entry가 그 이름을 차지하고 있어도 "존재하지 않음"으로 오판하지 않는다.
+**계획된 output 중 하나라도 이미 존재하면(entry 종류 무관) 어떤 개별
+pipeline conversion도 시작되기 전에 전부 미리 검사해 명시적으로 fail-closed하며, 기존 entry는 절대
+덮어쓰거나 삭제하거나 건드리지 않는다** — 개별 `TargetXmlSerializer`의 REPLACE_EXISTING 동작은 이
+batch 레벨 overwrite 정책의 근거가 아니다. `.xfdl` 입력이 0건이면 공허한 배치를 성공으로 보고하지
+않고 명시적으로 실패(종료 코드 2)한다. 이 machine은 실제로 NTFS junction을 만들 수 있어, root 밖
+이탈/root 안 별칭/output 중간경로 별칭/dangling 중간경로/**최종 목표 경로 자체를 점유한 dangling
+entry** 다섯 시나리오 모두 실제 junction으로 회귀 테스트했다(symlink 자체는 이 계정에 권한이 없어
+생성 시도 시 건너뛰지만, 코드 경로는 확장자/entry 종류 무관 우선순위로 구성돼 있다).
+
+`runtimeProfileFile`은 줄마다 정규 capability ID 하나(`com.example.xfdltracker.runtime.
+CommonRuntimeCapabilityCatalog.createSeeded()` 기준), `#`으로 시작하는 줄은 주석, 빈 줄은 무시하는
+평문 파일이다(예시: `closed-network-import\example-runtime-profile.txt`). 카탈로그에 없는 ID가
+하나라도 있으면 변환을 시작하기 전에 명시적으로 fail-closed한다 — 이름으로 capability를 추론하지
+않으며, 모든 capability가 사용 가능하다고 가정하는 암묵적 기본 profile도 없다.
+
+이 entrypoint는 exact-JDK 게이트/compile/regression 로직을 자체 구현하지 않고
+`verify-standalone.bat`에 그대로 위임한다 — 그 게이트를 통과하지 못하면 batch 변환 자체를 시작하지
+않는다(`BATCH_CONVERSION_STARTS_BEFORE_TARGET_JDK_GATE = FALSE`). 여러 입력 중 하나라도 실패하면
+(예: 이미 종결된 CheckBox/GRID-3/Defect 2 계약 한계에 해당하는 입력) 그 시점에서 즉시 멈추고
+0이 아닌 종료 코드로 끝나며, 실패한 입력에 대한 부분 산출물은 절대 발행되지 않는다 — 그 이전에
+이미 끝난 입력의 output은 그대로 두고 성공/실패/미시도 목록을 그대로 보고한다(부분 완료를 성공으로
+위장하지 않음). Legacy 변환기(`XPlatformProjectConverter`/`WebSquareGenerator`)는 이 경로 어디에서도
+호출되지 않는다. batch 변환이 exit 0로 성공했다는 것이 `closed-network-import\MANIFEST.sha256`
+비교가 현재 HEAD와 일치한다는 뜻은 아니다 — 그 manifest는 별개의 candidate 패키징 스냅샷이며 이
+batch 실행 경로의 authority가 아니다(`closed-network-import\README-KO.md` 항목 7 참고).
+
+`closed-network-import\BATCH-CONVERT.sh`도 있지만 이는 cmd.exe를 거쳐 위 Windows batch를 그대로
+호출하는 best-effort 브리지일 뿐이다 — Windows batch(`.cmd`)가 이 프로젝트의 정규 platform
+contract이며, `.sh`는 그 gate를 재구현하지 않고 다만 대신 못 통과시킬 뿐이다(cmd.exe/cygpath를 이
+`.sh`가 찾지 못하면 exact-JDK gate를 통과한 것으로 절대 간주하지 않고 명시적으로 실패한다).
 
 ## 3. 반입 프로젝트와 Phase4 baseline 관계
 

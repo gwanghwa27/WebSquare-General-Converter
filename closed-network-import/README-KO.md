@@ -110,9 +110,29 @@ raw XFDL
 → com.example.xfdltracker.pipeline.TargetWebSquarePipeline.convert(File, File, TargetPipelineConfig)
 → WebSquare XML
 ```
-호출자가 자신의 `TargetRuntimeProfile`을 직접 구성해서 넘겨야 하며, 범용
-배치 CLI를 위한 승인된 기본 profile은 존재하지 않는다(자세한 내용:
-`docs/OFFLINE-USER-GUIDE.md` 항목 2-1).
+호출자가 자신의 `TargetRuntimeProfile`을 직접 구성해서 넘겨야 하며, 임의의
+"기본" profile은 여전히 존재하지 않는다(자세한 내용: `docs/OFFLINE-USER-GUIDE.md`
+항목 2-1).
+
+**여러 파일을 한 번에 변환하려면(Slice 99F)** `closed-network-import\
+BATCH-CONVERT.cmd`(정규 platform)/`.sh`(best-effort bridge)를 쓴다 -- 호출자가
+`inputRoot`/`outputRoot`/runtime profile 파일 세 인자를 명시적으로 제공해야
+하며, exact-JDK 게이트는 `verify-standalone.bat`에 위임한다(자체 재구현 없음).
+`inputRoot`/`outputRoot`는 같거나 서로 nested되면 안 되고(real path 기준),
+심볼릭 링크 항목은 확장자/대상과 무관하게 항상 거부하며, junction 등
+Java가 심볼릭 링크로 인식 못 하는 별칭도 root 밖 이탈이든 root 안에서의
+단순 중복 노출이든 real path 재확인으로 거부한다(Slice 99F Correction 2).
+output 쪽은 최종 real path가 root 안이어도 그 경로 중간에 별칭이 있으면
+동일하게 거부하며, 중간 구간이 존재하는지는 링크를 따라가지 않고
+판정하므로(NOFOLLOW) 대상이 지워진 dangling alias를 "아직 없음"으로
+착각하지 않는다(Slice 99F Correction 3). 계획된 최종 `.xml` 경로 자체도
+같은 NOFOLLOW 기준으로 이미 점유돼 있는지 확인하며(entry 종류 무관 --
+파일/디렉터리/dangling entry 전부 포함, Slice 99F Correction 4), 어떤
+변환도 시작되기 전에 fail-closed하고 기존 entry는 건드리지 않는다.
+이 batch 실행의 성공/실패는 아래 7번 `MANIFEST.sha256` 비교와 무관하다
+(별개 authority).
+자세한 문법은 `docs/OFFLINE-USER-GUIDE.md` 항목 2-2, 예시는
+`closed-network-import\example-runtime-profile.txt` 참고.
 
 ## 7. Regression 방법 -- BUILD-AND-VERIFY는 변환 entrypoint가 아님
 
@@ -120,7 +140,7 @@ raw XFDL
 MANIFEST.sha256 무결성 확인 + clean compile까지만 수행한 뒤
 `[CURRENT_PROJECT_CLI_CONFIGURATION_CONTRACT_BLOCKER]`를 출력하고 실패로
 종료한다 -- **변환/회귀 entrypoint가 아니다**(legacy 변환 의존 단계는 전부
-제거됨).
+제거됨, 실제 batch 변환은 위 `BATCH-CONVERT.cmd`/`.sh` 참고).
 
 standalone 검증 authority는 `verify-standalone.bat`이다(`verify-offline.bat`/
 `verify-offline.sh`는 여기로 위임하는 thin wrapper):

@@ -12,8 +12,11 @@
 authority는 `verify-standalone.bat`(`verify-offline.bat`/`verify-offline.sh`는 여기로 위임하는
 thin wrapper일 뿐, 별도 검증 로직이 없다). 아래 항목 5의 `convert-sample.*`는 **non-operational legacy
 entrypoint로 disabled**되어 있다 -- 실행하면 즉시 `[CURRENT_PROJECT_CLI_CONFIGURATION_CONTRACT_BLOCKER]`
-메시지와 함께 종료하며 어떤 변환도 수행하지 않는다. 자세한 내용은 `docs/OFFLINE-USER-GUIDE.md` 항목 2-1/항목 9를
-참고.
+메시지와 함께 종료하며 어떤 변환도 수행하지 않는다. 여러 XFDL 파일을 한 번에 변환하려면(Slice 99F)
+`closed-network-import\BATCH-CONVERT.cmd`(또는 `.sh`)를 사용한다 -- 이 entrypoint는 호출자가 명시적으로
+제공한 `inputRoot`/`outputRoot`/runtime profile 파일 세 인자를 요구하며, 암묵적 기본 profile은 여전히
+존재하지 않는다(자세한 내용: `docs/OFFLINE-USER-GUIDE.md` 항목 2-1/항목 9, `closed-network-import\
+example-runtime-profile.txt`).
 
 ## 1. 프로젝트 목적
 
@@ -111,6 +114,12 @@ appearance="full")과 렌더링/runtime 동등하다는 증거가 repository 안
 
 Auto page init:
 CLOSED_CONTRACT_LIMITATION (Slice 99D -- accepted path never generates ev:onpageload, 0 consumers)
+
+Closed-network batch entrypoint:
+IMPLEMENTED_PENDING_TARGET_JDK_CERTIFICATION (Slice 99F -- closed-network-import\BATCH-CONVERT.cmd/.sh,
+explicit caller-supplied TargetRuntimeProfile file required, no implicit default; delegates the
+exact-JDK gate to verify-standalone.bat rather than duplicating it -- gated by the same
+TARGET_JDK_1_8_0_111_VERIFICATION blocker below, not a separate one)
 
 Phase1 SHA:
 PASS

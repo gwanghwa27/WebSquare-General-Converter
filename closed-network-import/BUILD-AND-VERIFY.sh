@@ -42,13 +42,14 @@ echo
 
 echo "[CURRENT_PROJECT_CLI_CONFIGURATION_CONTRACT_BLOCKER] Legacy sample-project conversion (and"
 echo "the legacy CSS-class/state policy checks that depended on its output) is disabled in this"
-echo "script. TargetWebSquarePipeline is the accepted conversion architecture. A caller-supplied"
-echo "TargetRuntimeProfile is required for every conversion; no approved generic/default profile"
-echo "currently exists for a batch CLI covering an arbitrary multi-file project, so no default can"
-echo "be invented here. Legacy conversion fallback (XPlatformProjectConverter / WebSquareGenerator)"
-echo "is forbidden. Use TargetWebSquarePipeline.convert(File, File, TargetPipelineConfig) directly,"
-echo "supplying your own TargetRuntimeProfile. For standalone acceptance verification, use"
-echo "verify-standalone.bat (or verify-offline.bat/verify-offline.sh, which delegate to it)."
+echo "script -- it only checks manifest integrity and clean compile, it is not a conversion"
+echo "entrypoint. TargetWebSquarePipeline is the accepted conversion architecture. Legacy conversion"
+echo "fallback (XPlatformProjectConverter / WebSquareGenerator) is forbidden. For actual batch"
+echo "conversion, use closed-network-import/BATCH-CONVERT.cmd (or .sh) <inputRoot> <outputRoot>"
+echo "<runtimeProfileFile> (Slice 99F) -- it requires an explicit caller-supplied TargetRuntimeProfile"
+echo "file (see closed-network-import/example-runtime-profile.txt) and delegates its exact-JDK gate to"
+echo "verify-standalone.bat. For standalone acceptance verification, use verify-standalone.bat (or"
+echo "verify-offline.bat/verify-offline.sh, which delegate to it)."
 FAIL=1
 
 if [ "$FAIL" = "0" ]; then

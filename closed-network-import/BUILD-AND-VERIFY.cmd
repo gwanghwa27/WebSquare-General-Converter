@@ -51,13 +51,15 @@ echo.
 
 echo [CURRENT_PROJECT_CLI_CONFIGURATION_CONTRACT_BLOCKER] Legacy sample-project conversion (and
 echo the legacy CSS-class/state and XML-output checks that depended on its output) is disabled in
-echo this script. TargetWebSquarePipeline is the accepted conversion architecture. A caller-supplied
-echo TargetRuntimeProfile is required for every conversion; no approved generic/default profile
-echo currently exists for a batch CLI covering an arbitrary multi-file project, so no default can
-echo be invented here. Legacy conversion fallback (XPlatformProjectConverter / WebSquareGenerator)
-echo is forbidden. Use TargetWebSquarePipeline.convert(File, File, TargetPipelineConfig) directly,
-echo supplying your own TargetRuntimeProfile. For standalone acceptance verification, use
-echo verify-standalone.bat (or verify-offline.bat/verify-offline.sh, which delegate to it).
+echo this script -- it only checks manifest integrity and clean compile, it is not a conversion
+echo entrypoint. TargetWebSquarePipeline is the accepted conversion architecture. Legacy conversion
+echo fallback (XPlatformProjectConverter / WebSquareGenerator) is forbidden. For actual batch
+echo conversion, use closed-network-import\BATCH-CONVERT.cmd, supplying an input folder, an output
+echo folder, and a runtime profile file as its three arguments (Slice 99F) -- it requires an
+echo explicit caller-supplied TargetRuntimeProfile file (see closed-network-import\
+echo example-runtime-profile.txt) and delegates its exact-JDK gate to verify-standalone.bat. For
+echo standalone acceptance verification, use verify-standalone.bat (or verify-offline.bat/
+echo verify-offline.sh, which delegate to it).
 set "FAIL=1"
 
 if "%FAIL%"=="0" (
