@@ -42,6 +42,7 @@ public class TargetPayloadBehaviorFinalizerTest {
         testValidOnclickResolves();
         testEventRefersToExactButtonStructuralIdentity();
         testUnmappedEventFailsUnsupportedEventMapping();
+        testOnloadEventNeverMapsToTargetOnpageload();
         testUnresolvedFunctionFails();
         testEventRefersToNonexistentButtonFails();
         testDuplicateFinalizedOnclickForSameButtonFails();
@@ -210,6 +211,19 @@ public class TargetPayloadBehaviorFinalizerTest {
         TargetPayloadBehaviorFinalizationResult result =
                 new TargetPayloadBehaviorFinalizer().finalize(payload, artifactWith("fn_save"));
         assertStatus("unmapped_event", PayloadBehaviorFinalizationStatus.UNSUPPORTED_EVENT_MAPPING, result);
+    }
+
+    /**
+     * Slice 99D -- EVENT_NAME_MAPPING은 "onclick" 1건만 존재한다. source가 "onload"(page
+     * lifecycle event)를 요청해도 target ev:onpageload로 승격되지 않고 동일하게 fail-closed된다
+     * -- 이 finalizer가 accepted path에서 ev:onpageload를 생성할 수 없다는 구조적 증거다.
+     */
+    private static void testOnloadEventNeverMapsToTargetOnpageload() {
+        TargetNodePayload payload = payload(1, list(
+                buttonLeaf(0, "b0", "Save"), eventLeaf("b0", "onload", "fn_onload")));
+        TargetPayloadBehaviorFinalizationResult result =
+                new TargetPayloadBehaviorFinalizer().finalize(payload, artifactWith("fn_onload"));
+        assertStatus("onload_event_not_mapped", PayloadBehaviorFinalizationStatus.UNSUPPORTED_EVENT_MAPPING, result);
     }
 
     private static void testUnresolvedFunctionFails() {

@@ -54,6 +54,7 @@ public class TargetWebSquarePipelineTest {
         testIntegrationAmbiguousMultiFormatGridFailsClosedNoPartialOutput();
         testIntegrationCheckBoxDatasetBoundFailsClosedNoPartialOutput();
         testIntegrationCheckBoxAmbiguousBindingFailsClosedNoPartialOutput();
+        testIntegrationCheckBoxUnboundSucceedsWithoutPageInitLifecycle();
         testIntegrationAllSevenFamiliesReachFinalXml();
 
         // convert()는 ComponentPredicateAnalyzer/ComponentLayoutConverter를 직접 참조하지 않고
@@ -739,6 +740,30 @@ public class TargetWebSquarePipelineTest {
         assertTrue("checkbox-ambiguous-binding: no partial/invalid target XML is ever published", !output.exists());
     }
 
+    /**
+     * Slice 99D -- unbound CheckBox는 어떤 automatic page-init/lifecycle bootstrap도 요구하지
+     * 않고 정상 발행된다(accepted path는 애초에 ev:onpageload를 생성할 수 없음을 산출물로 재확인).
+     */
+    private static void testIntegrationCheckBoxUnboundSucceedsWithoutPageInitLifecycle() throws Exception {
+        File dir = Files.createTempDirectory("target-web-square-pipeline-checkbox-unbound-fixture").toFile();
+        File xfdl = new File(dir, "CheckBoxUnbound.xfdl");
+        String content = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
+                + "<FDL version=\"1.5\">\n"
+                + "  <Form id=\"CheckBoxUnboundForm\" width=\"400\" height=\"300\">\n"
+                + "    <Div id=\"table1\">\n"
+                + "      <Static id=\"lblUse\" left=\"0\" top=\"0\" width=\"50\" height=\"20\" text=\"Use\" />\n"
+                + "      <CheckBox id=\"chkUse\" left=\"60\" top=\"0\" width=\"100\" height=\"20\" />\n"
+                + "    </Div>\n"
+                + "  </Form>\n"
+                + "</FDL>\n";
+        Files.write(xfdl.toPath(), content.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        File output = tempOutput();
+        new TargetWebSquarePipeline().convert(xfdl, output, new TargetPipelineConfig(TargetRuntimeProfile.empty()));
+        assertTrue("checkbox-unbound: pipeline succeeds without any page-init dependency", output.isFile());
+        String xml = new String(Files.readAllBytes(output.toPath()), java.nio.charset.StandardCharsets.UTF_8);
+        assertTrue("checkbox-unbound: generated XML never contains onpageload", !xml.contains("onpageload"));
+    }
+
     private static void testIntegrationAllSevenFamiliesReachFinalXml() throws Exception {
         File dir = Files.createTempDirectory("target-web-square-pipeline-sevenfamily-fixture").toFile();
         File xfdl = new File(dir, "SevenFamily.xfdl");
@@ -792,6 +817,9 @@ public class TargetWebSquarePipelineTest {
         File output = tempOutput();
         new TargetWebSquarePipeline().convert(xfdl, output, new TargetPipelineConfig(TargetRuntimeProfile.empty()));
         assertTrue("integration: all seven families together reach a successful final target XML", output.isFile());
+        // Slice 99D -- 7개 family를 모두 합쳐도 accepted path는 ev:onpageload를 생성하지 않는다.
+        String xml = new String(Files.readAllBytes(output.toPath()), java.nio.charset.StandardCharsets.UTF_8);
+        assertTrue("integration: no family's output ever contains onpageload", !xml.contains("onpageload"));
     }
 
     private static void testIntegrationSplitLayoutOnlySurvivesFullPipeline() throws Exception {

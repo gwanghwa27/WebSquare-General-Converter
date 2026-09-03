@@ -266,14 +266,16 @@ verifier는 legacy 변환 출력에 의존하는 절차이며, 현재 `verify-of
 - Grid: GRID-1(구조+interaction) / GRID-2 REAL_RUNTIME_VERIFIED
 - Static / Edit: 정적 value 렌더링 REAL_RUNTIME_VERIFIED
 - CheckBox(unbound): **REAL_RUNTIME_VERIFIED (WIDGET/BOOTSTRAP SEMANTICS)** — `addItem(value,label)`
-  호출, 실제 `<input>`+`<label>` 생성, click→checked→`getValue()` round-trip을 실 엔진에서 확인. 단
-  생성된 `ev:onpageload`가 페이지 진입 시 **자동으로 발화하는지는 별도로 확인되지 않음**
-  (`AUTO_PAGE_INIT_NOT_VERIFIED / OBSERVED`, 항목 13 참고 — 과대승격 방지를 위해 두 축으로 분리 판정)
+  호출, 실제 `<input>`+`<label>` 생성, click→checked→`getValue()` round-trip을 실 엔진에서 확인
+  (역사적 검증 기록, 항목 13 참고). accepted v6 path의 현재 CheckBox 출력은 `ev:onpageload`/script
+  bootstrap을 전혀 생성하지 않으므로(항목 13-4, Slice 99D CLOSED_CONTRACT_LIMITATION) 자동
+  page-init 신뢰성 문제 자체가 발행된 산출물에 적용되지 않는다.
 - Phase1 SHA: **STATIC_VERIFIED / PASS**
 
 ## 13. 현재 남은 제한
 
-**제품/Runtime known gap**(Defect 2는 Slice 99A, GRID-3는 Slice 99B correction에서 종결, 나머지 2건은 그대로):
+**제품/Runtime known gap**(Defect 2는 Slice 99A, GRID-3는 Slice 99B correction, CheckBox dataset-bound는
+Slice 99C, `ev:onpageload` 자동 page-init은 Slice 99D에서 각각 종결):
 1. Defect 2 — `CONTENT_NOT_READY` false-negative: **CLOSED_CONTRACT_LIMITATION**(Slice 99A). Tab 동적
    navigation(`someTab.setUrl(...)`/`addTab(...)` 등)은 `identifier.member` 형태라 `SourceScriptAnalyzer`가
    항상 `UNSUPPORTED_SYNTAX`로 결정적으로 거부하며, `TargetWebSquarePipeline`은 이 시점에 전체 변환을
@@ -316,8 +318,21 @@ verifier는 legacy 변환 출력에 의존하는 절차이며, 현재 `verify-of
    `testIntegrationCheckBoxAmbiguousBindingFailsClosedNoPartialOutput`로 검증). "CheckBox dataset
    binding source semantics가 완전히 검증됐다"는 주장이 아니라, 정반대로 그 계약이 증명되지
    않았다는 사실 자체가 이 종결의 근거다.
-4. `ev:onpageload` 자동 발화 신뢰성: **AUTO_PAGE_INIT_NOT_VERIFIED / OBSERVED**. 일부 페이지/라우트에서
-   onload 바인딩이 자동으로 실행되지 않는 현상이 관찰됨. BIND-1/CheckBox-unbound/Defect-2에 공통.
+4. `ev:onpageload` 자동 page-init 신뢰성: **CLOSED_CONTRACT_LIMITATION**(Slice 99D). 4가지 별개
+   질문으로 나누어 판단한다 -- (a) event 선언 생성: accepted v6 path는 `ev:onpageload`를 **전혀
+   생성하지 않는다**(`AtomicWebSquareRenderer`가 target event local name으로 `onclick`만 인정,
+   `TargetPayloadBehaviorFinalizer.EVENT_NAME_MAPPING`도 `onclick` 1건만 존재 -- source `onload`도
+   동일하게 `UNSUPPORTED_EVENT_MAPPING`으로 fail-closed됨); (b) handler body 생성: accepted path에
+   해당 없음; (c) 실제 자동 발화: 과거(레거시 `WebSquareGenerator`, `pageLoadStatements`/`addItem`
+   채널) 조사에서도 "확인하지 못함"으로 스스로 기록됐고, 그 채널 자체가 accepted v6 path에서
+   `WebSquareGenerator`와 함께 도달 불가; (d) 지원 context 신뢰성: 위 이유로 해당 없음. 즉 accepted
+   path에는 자동 page-init에 의존하는 산출물이 **0건**이다 -- unbound CheckBox는 빈
+   `<xf:select appearance="full"/>`로 렌더되어 script/head 콘텐츠 없이도 발행되며(`addItem` 호출
+   없음), BIND-1도 `WebSquareGenerator` 전용 수정이라 accepted path에 승계되지 않았다. "자동 발화가
+   검증됐다"는 주장이 아니라, accepted path가 애초에 이 메커니즘을 만들지 않는다는 구조적 사실이
+   종결 근거다(`TargetPayloadBehaviorFinalizerTest`의 `testOnloadEventNeverMapsToTargetOnpageload`,
+   `TargetWebSquarePipelineTest`의 `testIntegrationCheckBoxUnboundSucceedsWithoutPageInitLifecycle`/
+   `testIntegrationAllSevenFamiliesReachFinalXml`로 생성 XML에 `onpageload` 부재를 검증).
 
 **별도 certification blocker 1건**:
 - exact JDK 1.8.0_111 확보/검증 상태: **BLOCKED_BY_DISTRIBUTION**. 이 프로젝트를 패키징한 온라인 PC에서
