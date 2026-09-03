@@ -297,7 +297,25 @@ verifier는 legacy 변환 출력에 의존하는 절차이며, 현재 `verify-of
    `TargetWebSquarePipelineTest`의 `testIntegrationAmbiguousMultiFormatGridFailsClosedNoPartialOutput`로
    검증). 이는 "동적 전환 제한"이 아니라 selector 증거 부재에 따른 계약상 한계이며, 향후 source
    문법에서 활성 Format selector가 실제로 증명되기 전에는 확장하지 않는다.
-3. CheckBox — dataset-bound 케이스: **OPEN**. shipped 참조 사례가 없어 안전한 일반화 근거 없음.
+3. CheckBox — dataset-bound 케이스: **CLOSED_CONTRACT_LIMITATION**(Slice 99C, correction 2).
+   generic한 `<BindItem compid= propid= datasetid= columnid=/>` 선언 문법 자체는 corpus로 증명되어
+   있다(`DatasetBinding.xfdl`, Edit 대상). 그러나 **shipped CheckBox 대상 BindItem 실사용례는
+   corpus/dev pack 어디에도 없으며**, CheckBox의 checked/unchecked 값 semantics와 target
+   `w2:checkbox` binding/runtime 계약 모두 증명되지 않았다. accepted binding resolution은
+   evidence-bounded exact-reference subset뿐이다(`SourceBindingAnalyzer`가 compid를 문서 안
+   id-attribute exact match로만 resolve, dotted-path 등 미증명 확장 없음). unbound CheckBox
+   (corpus 유일 사례)는 기존과 동일하게 그대로 지원된다. source의 어떤 BindItem이 정확히 하나의
+   CheckBox Element로 exact resolve되면 `TargetPayloadExtractor`가 그 의미를 추측하지 않고 렌더러
+   도달 전에 fail-closed된다(`checkbox_dataset_binding_no_proven_target_contract`). 같은 id를
+   가진 Element가 2개 이상이라 ambiguous하게 resolve될 때 그 후보 중 하나가 이 CheckBox이면 --
+   "증명이 없으니 unbound로 넘어간다"가 아니라 -- 별도의 명시적 사유
+   (`checkbox_dataset_binding_component_reference_ambiguous`)로 동일하게 fail-closed된다. 무관한
+   컴포넌트끼리만 얽힌 ambiguous binding은 이 CheckBox에 영향을 주지 않는다(`SourceBindingAnalyzerTest`,
+   `TargetPayloadExtractorTest`, `TargetWebSquarePipelineTest`의
+   `testIntegrationCheckBoxDatasetBoundFailsClosedNoPartialOutput`/
+   `testIntegrationCheckBoxAmbiguousBindingFailsClosedNoPartialOutput`로 검증). "CheckBox dataset
+   binding source semantics가 완전히 검증됐다"는 주장이 아니라, 정반대로 그 계약이 증명되지
+   않았다는 사실 자체가 이 종결의 근거다.
 4. `ev:onpageload` 자동 발화 신뢰성: **AUTO_PAGE_INIT_NOT_VERIFIED / OBSERVED**. 일부 페이지/라우트에서
    onload 바인딩이 자동으로 실행되지 않는 현상이 관찰됨. BIND-1/CheckBox-unbound/Defect-2에 공통.
 

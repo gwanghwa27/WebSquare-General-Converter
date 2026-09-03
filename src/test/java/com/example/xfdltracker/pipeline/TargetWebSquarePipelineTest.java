@@ -52,6 +52,8 @@ public class TargetWebSquarePipelineTest {
         testIntegrationTabControlSurvivesFullPipeline();
         testIntegrationSearchAreaSurvivesFullPipeline();
         testIntegrationAmbiguousMultiFormatGridFailsClosedNoPartialOutput();
+        testIntegrationCheckBoxDatasetBoundFailsClosedNoPartialOutput();
+        testIntegrationCheckBoxAmbiguousBindingFailsClosedNoPartialOutput();
         testIntegrationAllSevenFamiliesReachFinalXml();
 
         // convert()는 ComponentPredicateAnalyzer/ComponentLayoutConverter를 직접 참조하지 않고
@@ -664,6 +666,77 @@ public class TargetWebSquarePipelineTest {
         assertTrue("grid3-ambiguous: exception reason names the explicit ambiguity evidence",
                 reason != null && reason.contains("ambiguous_multi_format_no_proven_selector"));
         assertTrue("grid3-ambiguous: no partial/invalid target XML is ever published", !output.exists());
+    }
+
+    /**
+     * Slice 99C -- CheckBox id를 가리키는 {@code <BindItem compid=.../>}가 존재하면(real
+     * {@code DatasetBinding.xfdl} 구조와 동일한 형태) propid/값 계약이 증명되지 않았으므로
+     * 파이프라인 전체가 fail-closed되어 대상 XML이 전혀 발행되지 않는다.
+     */
+    private static void testIntegrationCheckBoxDatasetBoundFailsClosedNoPartialOutput() throws Exception {
+        File dir = Files.createTempDirectory("target-web-square-pipeline-checkbox-dataset-bound-fixture").toFile();
+        File xfdl = new File(dir, "CheckBoxDatasetBound.xfdl");
+        String content = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
+                + "<FDL version=\"1.5\">\n"
+                + "  <Form id=\"CheckBoxDatasetBoundForm\" width=\"400\" height=\"300\">\n"
+                + "    <Bind><BindItem id=\"b1\" compid=\"chkAgree\" propid=\"checked\" datasetid=\"dsAgree\""
+                + " columnid=\"AGREE\" /></Bind>\n"
+                + "    <Div id=\"table1\">\n"
+                + "      <Static id=\"lblAgree\" left=\"0\" top=\"0\" width=\"50\" height=\"20\" text=\"동의\" />\n"
+                + "      <CheckBox id=\"chkAgree\" left=\"60\" top=\"0\" width=\"100\" height=\"20\" />\n"
+                + "    </Div>\n"
+                + "  </Form>\n"
+                + "</FDL>\n";
+        Files.write(xfdl.toPath(), content.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        File output = tempOutput();
+        boolean threw = false;
+        String reason = null;
+        try {
+            new TargetWebSquarePipeline().convert(xfdl, output, new TargetPipelineConfig(TargetRuntimeProfile.empty()));
+        } catch (IllegalStateException e) {
+            threw = true;
+            reason = e.getMessage();
+        }
+        assertTrue("checkbox-dataset-bound: pipeline fails closed before final publication", threw);
+        assertTrue("checkbox-dataset-bound: exception reason names the explicit evidence",
+                reason != null && reason.contains("checkbox_dataset_binding_no_proven_target_contract"));
+        assertTrue("checkbox-dataset-bound: no partial/invalid target XML is ever published", !output.exists());
+    }
+
+    /**
+     * CHECKBOX_AMBIGUOUS_BINDING_PIPELINE_FAIL_CLOSED_TEST -- BindItem의 compid가 CheckBox 2개
+     * (같은 id)에 동시에 매치되면 ambiguous 상태이며, 그중 하나가 실제 CheckBox이므로 다른
+     * 명시적 사유로 파이프라인 전체가 fail-closed되어 대상 XML이 전혀 발행되지 않는다.
+     */
+    private static void testIntegrationCheckBoxAmbiguousBindingFailsClosedNoPartialOutput() throws Exception {
+        File dir = Files.createTempDirectory("target-web-square-pipeline-checkbox-ambiguous-fixture").toFile();
+        File xfdl = new File(dir, "CheckBoxAmbiguousBinding.xfdl");
+        String content = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
+                + "<FDL version=\"1.5\">\n"
+                + "  <Form id=\"CheckBoxAmbiguousBindingForm\" width=\"400\" height=\"300\">\n"
+                + "    <Bind><BindItem id=\"b1\" compid=\"dupChk\" propid=\"checked\" datasetid=\"dsAgree\""
+                + " columnid=\"AGREE\" /></Bind>\n"
+                + "    <Div id=\"table1\">\n"
+                + "      <Static id=\"lblAgree\" left=\"0\" top=\"0\" width=\"50\" height=\"20\" text=\"동의\" />\n"
+                + "      <CheckBox id=\"dupChk\" left=\"60\" top=\"0\" width=\"100\" height=\"20\" />\n"
+                + "    </Div>\n"
+                + "    <CheckBox id=\"dupChk\" left=\"200\" top=\"0\" width=\"100\" height=\"20\" />\n"
+                + "  </Form>\n"
+                + "</FDL>\n";
+        Files.write(xfdl.toPath(), content.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        File output = tempOutput();
+        boolean threw = false;
+        String reason = null;
+        try {
+            new TargetWebSquarePipeline().convert(xfdl, output, new TargetPipelineConfig(TargetRuntimeProfile.empty()));
+        } catch (IllegalStateException e) {
+            threw = true;
+            reason = e.getMessage();
+        }
+        assertTrue("checkbox-ambiguous-binding: pipeline fails closed before final publication", threw);
+        assertTrue("checkbox-ambiguous-binding: exception reason names the ambiguity-specific evidence",
+                reason != null && reason.contains("checkbox_dataset_binding_component_reference_ambiguous"));
+        assertTrue("checkbox-ambiguous-binding: no partial/invalid target XML is ever published", !output.exists());
     }
 
     private static void testIntegrationAllSevenFamiliesReachFinalXml() throws Exception {

@@ -51,7 +51,7 @@ wrapper id(`grp_resultArea`/`grp_main`)에 대한 기존 script/XJS reference는
 (`NEW_WRAPPER_SCRIPT_REFERENCE = 0`) — runtime risk가 0으로 증명된 것은 아니며, 단지 기존
 script/XJS에서 이 wrapper-ID를 참조하는 코드가 발견되지 않았다는 의미다.
 
-## 현재 known product/runtime gaps (6건, 항목 1은 Slice 99A, 항목 2는 Slice 99B correction에서 종결)
+## 현재 known product/runtime gaps (6건, 항목 1은 Slice 99A, 항목 2는 Slice 99B correction, 항목 3은 Slice 99C에서 종결)
 
 1. **Defect 2** — `CONTENT_NOT_READY` false-negative: **CLOSED_CONTRACT_LIMITATION**(Slice 99A,
    `docs/OFFLINE-USER-GUIDE.md` 항목 13 참고 — Tab 동적 navigation은 SourceScriptAnalyzer가 결정적으로
@@ -59,7 +59,9 @@ script/XJS에서 이 wrapper-ID를 참조하는 코드가 발견되지 않았다
 2. **GRID-3** — 다중 Format(default/alternate) 정의: **CLOSED_CONTRACT_LIMITATION**
    (Slice 99B correction, `docs/OFFLINE-USER-GUIDE.md` 항목 13 참고 — Format 1개는 완전 지원, 2개
    이상은 활성 Format을 고를 증명된 source selector가 없어 렌더러 도달 전에 fail-closed)
-3. **CheckBox dataset-bound**: **OPEN**
+3. **CheckBox dataset-bound**: **CLOSED_CONTRACT_LIMITATION**
+   (Slice 99C, `docs/OFFLINE-USER-GUIDE.md` 항목 13 참고 — unbound는 그대로 지원, CheckBox id를
+   가리키는 `<BindItem>`이 있으면 propid/값 계약 미증명으로 렌더러 도달 전에 fail-closed)
 4. **`ev:onpageload` reliability**: **OBSERVED**
 5. **`V5_RUNTIME_REGRESSION_REQUIRED`** — `TabRuntimeScriptGenerator`의
    `component('grp_content').getScope()`가 `xf:group` root에서 실제 v5 런타임에 동작하는지 미검증

@@ -2,6 +2,8 @@ package com.example.xfdltracker.pipeline;
 
 import com.example.xfdltracker.XfdlFunctionTracker;
 import com.example.xfdltracker.analyzer.SemanticRegionSegmenter;
+import com.example.xfdltracker.binding.SourceBindingAnalyzer;
+import com.example.xfdltracker.binding.SourceBindingReference;
 import com.example.xfdltracker.behavior.SourceAnalysisStatus;
 import com.example.xfdltracker.behavior.SourceScriptAnalysisResult;
 import com.example.xfdltracker.behavior.SourceScriptAnalyzer;
@@ -79,7 +81,11 @@ public final class TargetWebSquarePipeline {
             }
 
             TargetCompositionPlan plan = new TargetCompositionPlanBuilder().build(decisions);
-            List<TargetNodePayload> payloads = new TargetPayloadExtractor().extract(sourceRoot, plan, regions);
+            // 원본 XFDL -> binding evidence 분석(SourceBindingAnalyzer, accepted-path 유일한 raw
+            // source binding 스캔 지점) -> payload extraction 순서를 그대로 지킨다.
+            List<SourceBindingReference> bindingReferences = new SourceBindingAnalyzer().analyze(sourceRoot);
+            List<TargetNodePayload> payloads =
+                    new TargetPayloadExtractor().extract(sourceRoot, plan, regions, bindingReferences);
 
             String script = reader.extractScript(sourceDocument);
 

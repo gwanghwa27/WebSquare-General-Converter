@@ -1,6 +1,8 @@
 package com.example.xfdltracker.composition;
 
 import com.example.xfdltracker.analyzer.SemanticRegionSegmenter;
+import com.example.xfdltracker.binding.SourceBindingAnalyzer;
+import com.example.xfdltracker.binding.SourceBindingReference;
 import com.example.xfdltracker.payload.TargetEventBinding;
 import com.example.xfdltracker.payload.TargetLeafPayload;
 import com.example.xfdltracker.payload.TargetNodePayload;
@@ -1236,7 +1238,7 @@ public class AtomicWebSquareRendererTest {
         // TargetNodePayload 생성자가 identityKind==null을 거부하므로, 아래 extract() 호출이
         // 예외 없이 성공한다는 것 자체가 "production 경로가 null identityKind를 만들지 않는다"
         // 는 것을 실증한다.
-        List<TargetNodePayload> payloads = new TargetPayloadExtractor().extract(grid, plan, regions);
+        List<TargetNodePayload> payloads = extractWithBindings(grid, plan, regions);
         assertEquals("prod-payload: exactly one GRID envelope produced", "1", String.valueOf(payloads.size()));
         assertTrue("prod-payload: identityKind is explicitly non-null (constructor already enforces this)",
                 payloads.get(0).getIdentityKind() != null);
@@ -2669,7 +2671,7 @@ public class AtomicWebSquareRendererTest {
         assertTrue("bg-raw-evidence: BUTTON_GROUP region found", target != null);
         CompositionDecision decision = new CompositionEvaluator().evaluate(target);
         TargetCompositionPlan plan = new TargetCompositionPlanBuilder().build(java.util.Arrays.asList(decision));
-        List<TargetNodePayload> payloads = new TargetPayloadExtractor().extract(form, plan, regions);
+        List<TargetNodePayload> payloads = extractWithBindings(form, plan, regions);
 
         boolean hasRawEventLeafWithoutBinding = false;
         for (TargetLeafPayload item : payloads.get(0).getItems()) {
@@ -2709,13 +2711,22 @@ public class AtomicWebSquareRendererTest {
         assertTrue("real-pipeline: decision eligible", decision.isEligible());
 
         TargetCompositionPlan plan = new TargetCompositionPlanBuilder().build(java.util.Arrays.asList(decision));
-        List<TargetNodePayload> payloads = new TargetPayloadExtractor().extract(sourceRoot, plan, regions);
+        List<TargetNodePayload> payloads = extractWithBindings(sourceRoot, plan, regions);
 
         RealPipelineResult result = new RealPipelineResult();
         result.plan = plan;
         result.payloads = payloads;
         result.targetRegion = target;
         return result;
+    }
+
+    /** test-only convenience -- production {@link TargetPayloadExtractor}는 binding evidence를
+     *  스스로 계산하지 않으므로, 여기서 {@link SourceBindingAnalyzer}를 먼저 호출해 넘겨준다. */
+    private static List<TargetNodePayload> extractWithBindings(
+            Element sourceRoot, TargetCompositionPlan plan, List<SemanticRegionResult> regions) {
+        List<SourceBindingReference> bindingReferences = sourceRoot == null
+                ? new ArrayList<SourceBindingReference>() : new SourceBindingAnalyzer().analyze(sourceRoot);
+        return new TargetPayloadExtractor().extract(sourceRoot, plan, regions, bindingReferences);
     }
 
     private static Document newDocument() throws Exception {

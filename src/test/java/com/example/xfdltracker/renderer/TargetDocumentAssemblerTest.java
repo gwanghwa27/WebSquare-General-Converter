@@ -99,8 +99,11 @@ public class TargetDocumentAssemblerTest {
 
         CompositionDecision decision = new CompositionEvaluator().evaluate(gridRegion);
         TargetCompositionPlan plan = new TargetCompositionPlanBuilder().build(Arrays.asList(decision));
+        List<com.example.xfdltracker.binding.SourceBindingReference> bindingReferences =
+                new com.example.xfdltracker.binding.SourceBindingAnalyzer().analyze(grid);
         List<com.example.xfdltracker.payload.TargetNodePayload> payloads =
-                new com.example.xfdltracker.payload.TargetPayloadExtractor().extract(grid, plan, regions);
+                new com.example.xfdltracker.payload.TargetPayloadExtractor()
+                        .extract(grid, plan, regions, bindingReferences);
         List<AtomicRenderResult> atomic = new AtomicWebSquareRenderer().render(plan, payloads);
         List<CompositionRenderResult> composed = new CompositionRenderer().render(plan, atomic);
 

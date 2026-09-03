@@ -1,6 +1,8 @@
 package com.example.xfdltracker.payload;
 
 import com.example.xfdltracker.analyzer.SemanticRegionSegmenter;
+import com.example.xfdltracker.binding.SourceBindingAnalyzer;
+import com.example.xfdltracker.binding.SourceBindingReference;
 import com.example.xfdltracker.composition.CompositionDecision;
 import com.example.xfdltracker.composition.CompositionEvaluator;
 import com.example.xfdltracker.composition.TargetCompositionNode;
@@ -132,6 +134,17 @@ public class TargetPayloadExtractorTest {
 
         testGridAmbiguousMultiFormatFailsClosedBeforeRenderer();
 
+        testCheckBoxDatasetBoundBusinessTableFailsClosedBeforeRenderer();
+        testCheckBoxDatasetBoundSearchAreaStructurallyDifferentFixtureFailsClosed();
+        testCheckBoxUnboundNoBindDatasetStillSucceeds();
+        testCheckBoxBindingFalsePositiveEditTargetDoesNotRejectCheckBox();
+        testCheckBoxBindingFalsePositiveOtherCheckBoxTargetDoesNotRejectThisOne();
+        testCheckBoxUnrelatedAmbiguousBindingDoesNotContaminate();
+        testCheckBoxRelevantAmbiguousBindingFailsClosed();
+        testCheckBoxAmbiguousCandidateSetIncludingEditAlsoFailsForCheckBox();
+        testCheckBoxUnrelatedAmbiguousEditCandidatesDoNotRejectCheckBox();
+        testCheckBoxDatasetBoundNameHeuristicIrrelevant();
+
         if (failures == 0) {
             System.out.println("ALL TESTS PASSED");
         } else {
@@ -141,6 +154,15 @@ public class TargetPayloadExtractorTest {
     }
 
     // ---- fixture 구성 ----
+
+    /** test-only convenience -- production {@link TargetPayloadExtractor}는 binding evidence를
+     *  스스로 계산하지 않으므로, 여기서 {@link SourceBindingAnalyzer}를 먼저 호출해 넘겨준다. */
+    private static List<TargetNodePayload> extractWithBindings(
+            Element sourceRoot, TargetCompositionPlan plan, List<SemanticRegionResult> regions) {
+        List<SourceBindingReference> bindingReferences = sourceRoot == null
+                ? new ArrayList<SourceBindingReference>() : new SourceBindingAnalyzer().analyze(sourceRoot);
+        return new TargetPayloadExtractor().extract(sourceRoot, plan, regions, bindingReferences);
+    }
 
     private static Document newDocument() throws Exception {
         DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
@@ -322,7 +344,7 @@ public class TargetPayloadExtractorTest {
         Element titleBar = (Element) form.getElementsByTagName("Div").item(0);
         String planNodeId = structuralIdOf(titleBar);
 
-        List<TargetNodePayload> payloads = new TargetPayloadExtractor().extract(form, fx.plan, fx.regions);
+        List<TargetNodePayload> payloads = extractWithBindings(form, fx.plan, fx.regions);
         TargetNodePayload payload = findPayload(payloads, planNodeId);
         assertTrue("title_bar: payload present", payload != null);
         assertEquals("title_bar: item count", "1", String.valueOf(payload.getItems().size()));
@@ -345,7 +367,7 @@ public class TargetPayloadExtractorTest {
         analysis.getEvents().add(new EventBinding("btnGroup1.btnSave", "onclick", "fn_save"));
         Fixture fx = buildFixtureWithAnalysis(form, analysis);
 
-        List<TargetNodePayload> payloads = new TargetPayloadExtractor().extract(form, fx.plan, fx.regions);
+        List<TargetNodePayload> payloads = extractWithBindings(form, fx.plan, fx.regions);
         TargetNodePayload payload = findPayload(payloads, planNodeId);
         assertTrue("button_group: payload present", payload != null);
 
@@ -384,7 +406,7 @@ public class TargetPayloadExtractorTest {
         String planNodeId = structuralIdOf(btnGroup);
 
         Fixture fx = buildFixtureWithAnalysis(form, new XfdlAnalysisResult());
-        List<TargetNodePayload> payloads = new TargetPayloadExtractor().extract(form, fx.plan, fx.regions);
+        List<TargetNodePayload> payloads = extractWithBindings(form, fx.plan, fx.regions);
         TargetNodePayload payload = findPayload(payloads, planNodeId);
         assertTrue("expected_count: payload present", payload != null);
         assertEquals("expected_count: exactly 2 (flattenedButtons.size())", "2",
@@ -433,7 +455,7 @@ public class TargetPayloadExtractorTest {
         String planNodeId = structuralIdOf(btnGroup);
 
         Fixture fx = buildFixtureWithAnalysis(form, new XfdlAnalysisResult());
-        List<TargetNodePayload> payloads = new TargetPayloadExtractor().extract(form, fx.plan, fx.regions);
+        List<TargetNodePayload> payloads = extractWithBindings(form, fx.plan, fx.regions);
         TargetNodePayload payload = findPayload(payloads, planNodeId);
         assertTrue("no_text_value: payload present", payload != null);
         assertEquals("no_text_value: expectedStructuralMemberCount == 3", "3",
@@ -466,7 +488,7 @@ public class TargetPayloadExtractorTest {
         String planNodeId = structuralIdOf(titleBar);
 
         Fixture fx = buildFixtureWithAnalysis(form, new XfdlAnalysisResult());
-        List<TargetNodePayload> payloads = new TargetPayloadExtractor().extract(form, fx.plan, fx.regions);
+        List<TargetNodePayload> payloads = extractWithBindings(form, fx.plan, fx.regions);
         TargetNodePayload payload = findPayload(payloads, planNodeId);
         assertTrue("non_button_group: TITLE_BAR payload present", payload != null);
         assertTrue("non_button_group: expectedStructuralMemberCount is null for TITLE_BAR",
@@ -481,7 +503,7 @@ public class TargetPayloadExtractorTest {
         Element grid = (Element) form.getElementsByTagName("Grid").item(0);
         String planNodeId = structuralIdOf(grid);
 
-        List<TargetNodePayload> payloads = new TargetPayloadExtractor().extract(form, fx.plan, fx.regions);
+        List<TargetNodePayload> payloads = extractWithBindings(form, fx.plan, fx.regions);
         TargetNodePayload payload = findPayload(payloads, planNodeId);
         assertTrue("grid: payload present", payload != null);
         assertEquals("grid: item count (2 head + 1 body)", "3", String.valueOf(payload.getItems().size()));
@@ -517,9 +539,258 @@ public class TargetPayloadExtractorTest {
         final Fixture fx = buildFixture(form);
         assertThrowsIllegalState("grid_ambiguous_multi_format_before_renderer", new Runnable() {
             public void run() {
-                new TargetPayloadExtractor().extract(form, fx.plan, fx.regions);
+                extractWithBindings(form, fx.plan, fx.regions);
             }
         });
+    }
+
+    /**
+     * Slice 99C -- CheckBox id를 가리키는 real 증거 기반 {@code <BindItem compid=.../>}가 source
+     * 어딘가(예: Bind 블록)에 있으면(BUSINESS_TABLE control 위치) propid/값 계약이 전혀 증명되지
+     * 않았으므로 렌더러 도달 전에 명시적으로 fail-closed됨을 증명한다.
+     */
+    private static void testCheckBoxDatasetBoundBusinessTableFailsClosedBeforeRenderer() throws Exception {
+        Document doc = newDocument();
+        final Element form = doc.createElement("Form");
+        doc.appendChild(form);
+        form.appendChild(businessTableWithCheckBoxControl(doc, "table1", "lbl1", "chk1"));
+        form.appendChild(bindItemFor(doc, "b1", "chk1", "checked", "dsAgree", "AGREE"));
+
+        final Fixture fx = buildFixture(form);
+        assertThrowsIllegalState("checkbox_dataset_bound_business_table", new Runnable() {
+            public void run() {
+                extractWithBindings(form, fx.plan, fx.regions);
+            }
+        });
+    }
+
+    /**
+     * 구조적으로 다른 두번째 fixture(SEARCH_AREA 경로, Grid peer 존재, 다른 propid/datasetid/columnid
+     * 조합)도 동일한 명시적 fail-closed 계약으로 귀결됨을 증명한다 -- 표면 구조가 달라도 결과는 동일.
+     */
+    private static void testCheckBoxDatasetBoundSearchAreaStructurallyDifferentFixtureFailsClosed() throws Exception {
+        Document doc = newDocument();
+        final Element form = doc.createElement("Form");
+        doc.appendChild(form);
+        form.appendChild(businessTableWithCheckBoxControl(doc, "search1", "lblAgree", "agreeChk"));
+        form.appendChild(bindItemFor(doc, "b2", "agreeChk", "value", "dsOther", "FLAG"));
+        Element grid = doc.createElement("Grid");
+        grid.setAttribute("id", "grid1");
+        form.appendChild(grid);
+
+        final Fixture fx = buildFixture(form);
+        assertThrowsIllegalState("checkbox_dataset_bound_search_area_structurally_different", new Runnable() {
+            public void run() {
+                extractWithBindings(form, fx.plan, fx.regions);
+            }
+        });
+    }
+
+    /** 회귀 -- 이 id를 가리키는 BindItem이 전혀 없는 unbound CheckBox는 기존과 동일하게 정상 추출된다. */
+    private static void testCheckBoxUnboundNoBindDatasetStillSucceeds() throws Exception {
+        Document doc = newDocument();
+        Element form = doc.createElement("Form");
+        doc.appendChild(form);
+        form.appendChild(businessTableWithCheckBoxControl(doc, "table2", "lbl2", "chk2"));
+
+        Fixture fx = buildFixture(form);
+        List<TargetNodePayload> payloads = extractWithBindings(form, fx.plan, fx.regions);
+        assertTrue("checkbox-unbound: extraction succeeds without any BindItem targeting it", !payloads.isEmpty());
+    }
+
+    /**
+     * CHECKBOX_BINDING_FALSE_POSITIVE_ISOLATION_TEST(1/2) -- 다른 컴포넌트(Edit)를 가리키는
+     * BindItem이 있어도, 그와 무관한 CheckBox는 정상 추출된다(잘못된 correlation 반례).
+     */
+    private static void testCheckBoxBindingFalsePositiveEditTargetDoesNotRejectCheckBox() throws Exception {
+        Document doc = newDocument();
+        Element form = doc.createElement("Form");
+        doc.appendChild(form);
+        form.appendChild(businessTableWithCheckBoxControl(doc, "table3", "lbl3", "chkSafe"));
+        Element edit = doc.createElement("Edit");
+        edit.setAttribute("id", "edtElsewhere");
+        form.appendChild(edit);
+        form.appendChild(bindItemFor(doc, "bEdit", "edtElsewhere", "value", "dsX", "COL_X"));
+
+        Fixture fx = buildFixture(form);
+        List<TargetNodePayload> payloads = extractWithBindings(form, fx.plan, fx.regions);
+        assertTrue("false-positive-edit-target: unrelated CheckBox still extracted", !payloads.isEmpty());
+    }
+
+    /**
+     * CHECKBOX_BINDING_FALSE_POSITIVE_ISOLATION_TEST(2/2) -- 다른 CheckBox(compid가 문서에 실존
+     * 하지 않음, unresolved)를 가리키는 BindItem이 있어도 이 CheckBox는 정상 추출된다.
+     */
+    private static void testCheckBoxBindingFalsePositiveOtherCheckBoxTargetDoesNotRejectThisOne() throws Exception {
+        Document doc = newDocument();
+        Element form = doc.createElement("Form");
+        doc.appendChild(form);
+        form.appendChild(businessTableWithCheckBoxControl(doc, "table4", "lbl4", "chkSafe2"));
+        form.appendChild(bindItemFor(doc, "bOther", "chkSomewhereElseNotPresent", "checked", "dsY", "COL_Y"));
+
+        Fixture fx = buildFixture(form);
+        List<TargetNodePayload> payloads = extractWithBindings(form, fx.plan, fx.regions);
+        assertTrue("false-positive-other-checkbox-target: unrelated CheckBox still extracted", !payloads.isEmpty());
+    }
+
+    /**
+     * CHECKBOX_DATASET_NAME_HEURISTIC_TEST -- CheckBox의 id/name 문자열이 무엇이든 판정은 오직
+     * BindItem의 compid 참조 존재 여부로만 결정되며, control 이름에서 의미를 추론하지 않는다.
+     */
+    private static void testCheckBoxDatasetBoundNameHeuristicIrrelevant() throws Exception {
+        Document doc = newDocument();
+        final Element formA = doc.createElement("Form");
+        doc.appendChild(formA);
+        formA.appendChild(businessTableWithCheckBoxControl(doc, "tableA", "lblA", "zzzUnrelatedName"));
+        formA.appendChild(bindItemFor(doc, "bA", "zzzUnrelatedName", "checked", "dsA", "COL_A"));
+        final Fixture fxA = buildFixture(formA);
+        assertThrowsIllegalState("checkbox_name_heuristic_irrelevant_A", new Runnable() {
+            public void run() {
+                extractWithBindings(formA, fxA.plan, fxA.regions);
+            }
+        });
+
+        Document doc2 = newDocument();
+        final Element formB = doc2.createElement("Form");
+        doc2.appendChild(formB);
+        formB.appendChild(businessTableWithCheckBoxControl(doc2, "tableB", "lblB", "checkedDefaultAgree"));
+        formB.appendChild(bindItemFor(doc2, "bB", "checkedDefaultAgree", "checked", "dsB", "COL_B"));
+        final Fixture fxB = buildFixture(formB);
+        assertThrowsIllegalState("checkbox_name_heuristic_irrelevant_B", new Runnable() {
+            public void run() {
+                extractWithBindings(formB, fxB.plan, fxB.regions);
+            }
+        });
+    }
+
+    /**
+     * UNRELATED_AMBIGUOUS_BINDING_ISOLATION_TEST -- compid가 문서 안에서 2개 Element(둘 다 이
+     * CheckBox는 아님)에 동시에 매치되면 ambiguous로 남지만, 이 CheckBox는 후보 목록에 없으므로
+     * 영향받지 않고 정상 추출된다.
+     */
+    private static void testCheckBoxUnrelatedAmbiguousBindingDoesNotContaminate() throws Exception {
+        Document doc = newDocument();
+        Element form = doc.createElement("Form");
+        doc.appendChild(form);
+        form.appendChild(businessTableWithCheckBoxControl(doc, "table5", "lbl5", "chkSafe3"));
+        Element dupA = doc.createElement("Div");
+        dupA.setAttribute("id", "dupTarget");
+        Element dupB = doc.createElement("Div");
+        dupB.setAttribute("id", "dupTarget");
+        form.appendChild(dupA);
+        form.appendChild(dupB);
+        form.appendChild(bindItemFor(doc, "bAmbig", "dupTarget", "checked", "dsZ", "COL_Z"));
+
+        Fixture fx = buildFixture(form);
+        List<TargetNodePayload> payloads = extractWithBindings(form, fx.plan, fx.regions);
+        assertTrue("unrelated-ambiguous: unrelated CheckBox still extracted (not a candidate)",
+                !payloads.isEmpty());
+    }
+
+    /**
+     * CHECKBOX_RELEVANT_AMBIGUOUS_BINDING_TEST -- compid가 CheckBox 2개(같은 id)에 동시에
+     * 매치되면 ambiguous 상태이지만, 후보 목록에 이 CheckBox가 포함돼 있으므로 명시적으로
+     * fail-closed된다("unbound으로 넘어가도 된다"가 아님).
+     */
+    private static void testCheckBoxRelevantAmbiguousBindingFailsClosed() throws Exception {
+        Document doc = newDocument();
+        final Element form = doc.createElement("Form");
+        doc.appendChild(form);
+        form.appendChild(businessTableWithCheckBoxControl(doc, "table6", "lbl6", "dupChk"));
+        Element secondCheckBox = doc.createElement("CheckBox");
+        secondCheckBox.setAttribute("id", "dupChk");
+        form.appendChild(secondCheckBox);
+        form.appendChild(bindItemFor(doc, "bAmbigChk", "dupChk", "checked", "dsAmbig", "COL_AMBIG"));
+
+        final Fixture fx = buildFixture(form);
+        assertThrowsIllegalState("checkbox_relevant_ambiguous_binding", new Runnable() {
+            public void run() {
+                extractWithBindings(form, fx.plan, fx.regions);
+            }
+        });
+    }
+
+    /**
+     * CHECKBOX_RELEVANT_AMBIGUOUS_BINDING_TEST(mixed) -- compid 후보가 CheckBox 1개 + Edit 1개
+     * (같은 id)로 ambiguous하면, 그중 CheckBox 후보에 대해서도 동일하게 fail-closed된다.
+     */
+    private static void testCheckBoxAmbiguousCandidateSetIncludingEditAlsoFailsForCheckBox() throws Exception {
+        Document doc = newDocument();
+        final Element form = doc.createElement("Form");
+        doc.appendChild(form);
+        form.appendChild(businessTableWithCheckBoxControl(doc, "table7", "lbl7", "dupMixed"));
+        Element edit = doc.createElement("Edit");
+        edit.setAttribute("id", "dupMixed");
+        form.appendChild(edit);
+        form.appendChild(bindItemFor(doc, "bAmbigMixed", "dupMixed", "value", "dsMixed", "COL_MIXED"));
+
+        final Fixture fx = buildFixture(form);
+        assertThrowsIllegalState("checkbox_ambiguous_mixed_edit_candidate", new Runnable() {
+            public void run() {
+                extractWithBindings(form, fx.plan, fx.regions);
+            }
+        });
+    }
+
+    /**
+     * UNRELATED_AMBIGUOUS_BINDING_ISOLATION_TEST(Edit 후보만) -- compid 후보가 서로 다른 두
+     * Edit(같은 id)뿐이고 CheckBox는 후보에 없으면, 무관한 CheckBox는 정상 추출된다.
+     */
+    private static void testCheckBoxUnrelatedAmbiguousEditCandidatesDoNotRejectCheckBox() throws Exception {
+        Document doc = newDocument();
+        Element form = doc.createElement("Form");
+        doc.appendChild(form);
+        form.appendChild(businessTableWithCheckBoxControl(doc, "table8", "lbl8", "chkSafe4"));
+        Element edit1 = doc.createElement("Edit");
+        edit1.setAttribute("id", "dupEdit");
+        Element edit2 = doc.createElement("Edit");
+        edit2.setAttribute("id", "dupEdit");
+        form.appendChild(edit1);
+        form.appendChild(edit2);
+        form.appendChild(bindItemFor(doc, "bAmbigEdit", "dupEdit", "value", "dsEdit", "COL_EDIT"));
+
+        Fixture fx = buildFixture(form);
+        List<TargetNodePayload> payloads = extractWithBindings(form, fx.plan, fx.regions);
+        assertTrue("unrelated-ambiguous-edit-candidates: unrelated CheckBox still extracted",
+                !payloads.isEmpty());
+    }
+
+    /** label(Static) + CheckBox(control) 1쌍짜리 BUSINESS_TABLE-eligible container. BindItem은
+     * 별도로 {@link #bindItemFor}로 추가한다(unbound 회귀는 그냥 생략). */
+    private static Element businessTableWithCheckBoxControl(
+            Document doc, String containerId, String labelId, String checkBoxId) {
+        Element container = doc.createElement("Div");
+        container.setAttribute("id", containerId);
+        Element label = doc.createElement("Static");
+        label.setAttribute("id", labelId);
+        label.setAttribute("text", "동의");
+        label.setAttribute("left", "0");
+        label.setAttribute("top", "0");
+        label.setAttribute("width", "50");
+        label.setAttribute("height", "20");
+        Element checkBox = doc.createElement("CheckBox");
+        checkBox.setAttribute("id", checkBoxId);
+        checkBox.setAttribute("left", "60");
+        checkBox.setAttribute("top", "0");
+        checkBox.setAttribute("width", "100");
+        checkBox.setAttribute("height", "20");
+        container.appendChild(label);
+        container.appendChild(checkBox);
+        return container;
+    }
+
+    /** {@code DatasetBinding.xfdl} 실 corpus fixture와 동일한 구조의 {@code <Bind><BindItem .../></Bind>}. */
+    private static Element bindItemFor(
+            Document doc, String bindItemId, String compId, String propId, String datasetId, String columnId) {
+        Element bind = doc.createElement("Bind");
+        Element bindItem = doc.createElement("BindItem");
+        bindItem.setAttribute("id", bindItemId);
+        bindItem.setAttribute("compid", compId);
+        bindItem.setAttribute("propid", propId);
+        bindItem.setAttribute("datasetid", datasetId);
+        bindItem.setAttribute("columnid", columnId);
+        bind.appendChild(bindItem);
+        return bind;
     }
 
     private static void testTabControlLabels() throws Exception {
@@ -530,7 +801,7 @@ public class TargetPayloadExtractorTest {
         Element tab = (Element) form.getElementsByTagName("Tab").item(0);
         String planNodeId = structuralIdOf(tab);
 
-        List<TargetNodePayload> payloads = new TargetPayloadExtractor().extract(form, fx.plan, fx.regions);
+        List<TargetNodePayload> payloads = extractWithBindings(form, fx.plan, fx.regions);
         TargetNodePayload payload = findPayload(payloads, planNodeId);
         assertTrue("tab_control: payload present", payload != null);
         assertEquals("tab_control: item count", "2", String.valueOf(payload.getItems().size()));
@@ -558,7 +829,7 @@ public class TargetPayloadExtractorTest {
         Element form = buildFixtureForm(doc);
         Fixture fx = buildFixture(form);
 
-        List<TargetNodePayload> payloads = new TargetPayloadExtractor().extract(form, fx.plan, fx.regions);
+        List<TargetNodePayload> payloads = extractWithBindings(form, fx.plan, fx.regions);
         for (TargetNodePayload payload : payloads) {
             for (TargetLeafPayload item : payload.getItems()) {
                 assertTrue("raw_only: no BINDING (no producer this round)",
@@ -592,7 +863,7 @@ public class TargetPayloadExtractorTest {
         assertTrue("target_synthetic_skip: assignSlot succeeded", assigned);
 
         TargetCompositionPlan plan = new TargetCompositionPlanBuilder().build(decisions);
-        List<TargetNodePayload> payloads = new TargetPayloadExtractor().extract(form, plan, fx.regions);
+        List<TargetNodePayload> payloads = extractWithBindings(form, plan, fx.regions);
         String syntheticNodeId = "target_synthetic:" + syntheticId;
         assertTrue("target_synthetic_skip: no payload for TARGET_SYNTHETIC node",
                 findPayload(payloads, syntheticNodeId) == null);
@@ -621,7 +892,7 @@ public class TargetPayloadExtractorTest {
         form.appendChild(innerTab);
 
         Fixture fx = buildFixture(form);
-        List<TargetNodePayload> payloads = new TargetPayloadExtractor().extract(form, fx.plan, fx.regions);
+        List<TargetNodePayload> payloads = extractWithBindings(form, fx.plan, fx.regions);
 
         String outerNodeId = structuralIdOf(outerTab);
         String innerNodeId = structuralIdOf(innerTab);
@@ -652,9 +923,9 @@ public class TargetPayloadExtractorTest {
         TargetCompositionPlan planReversed = new TargetCompositionPlanBuilder().build(reversed);
 
         List<TargetNodePayload> payloadsForward =
-                new TargetPayloadExtractor().extract(form, planForward, regions);
+                extractWithBindings(form, planForward, regions);
         List<TargetNodePayload> payloadsReversed =
-                new TargetPayloadExtractor().extract(form, planReversed, regions);
+                extractWithBindings(form, planReversed, regions);
 
         assertEquals("order_independence: same node count",
                 String.valueOf(payloadsForward.size()), String.valueOf(payloadsReversed.size()));
@@ -702,7 +973,7 @@ public class TargetPayloadExtractorTest {
         analysis.getEvents().add(new EventBinding("sameButton", "onclick", "fn_confirmA"));
         Fixture fx = buildFixtureWithAnalysis(form, analysis);
 
-        List<TargetNodePayload> payloads = new TargetPayloadExtractor().extract(form, fx.plan, fx.regions);
+        List<TargetNodePayload> payloads = extractWithBindings(form, fx.plan, fx.regions);
         for (TargetNodePayload payload : payloads) {
             for (TargetLeafPayload item : payload.getItems()) {
                 assertTrue("ambiguous_event: no EVENT payload guessed for ambiguous componentId",
@@ -731,7 +1002,7 @@ public class TargetPayloadExtractorTest {
         Fixture fx = buildFixtureWithAnalysis(form, analysis);
 
         Element btnGroup = (Element) form.getElementsByTagName("Div").item(1);
-        List<TargetNodePayload> payloads = new TargetPayloadExtractor().extract(form, fx.plan, fx.regions);
+        List<TargetNodePayload> payloads = extractWithBindings(form, fx.plan, fx.regions);
         TargetNodePayload payload = findPayload(payloads, structuralIdOf(btnGroup));
         int eventCount = 0;
         for (TargetLeafPayload item : payload.getItems()) {
@@ -750,7 +1021,7 @@ public class TargetPayloadExtractorTest {
         Fixture fx = buildFixtureWithAnalysis(form, analysis);
 
         Element btnGroup = (Element) form.getElementsByTagName("Div").item(1);
-        List<TargetNodePayload> payloads = new TargetPayloadExtractor().extract(form, fx.plan, fx.regions);
+        List<TargetNodePayload> payloads = extractWithBindings(form, fx.plan, fx.regions);
         TargetNodePayload payload = findPayload(payloads, structuralIdOf(btnGroup));
         int eventCount = 0;
         if (payload != null) {
@@ -787,7 +1058,7 @@ public class TargetPayloadExtractorTest {
         final List<SemanticRegionResult> finalRegions = regions;
         assertThrowsIllegalState("event_provenance_tamper", new Runnable() {
             public void run() {
-                new TargetPayloadExtractor().extract(finalForm, plan, finalRegions);
+                extractWithBindings(finalForm, plan, finalRegions);
             }
         });
     }
@@ -806,11 +1077,11 @@ public class TargetPayloadExtractorTest {
         assertTrue("event_order_independence: region found", buttonGroup != null);
         Element btnGroupDiv = (Element) form.getElementsByTagName("Div").item(1);
 
-        List<TargetNodePayload> forwardPayloads = new TargetPayloadExtractor().extract(form, fx.plan, fx.regions);
+        List<TargetNodePayload> forwardPayloads = extractWithBindings(form, fx.plan, fx.regions);
         TargetNodePayload forward = findPayload(forwardPayloads, structuralIdOf(btnGroupDiv));
 
         java.util.Collections.reverse(buttonGroup.getPayloadEvidence());
-        List<TargetNodePayload> reversedPayloads = new TargetPayloadExtractor().extract(form, fx.plan, fx.regions);
+        List<TargetNodePayload> reversedPayloads = extractWithBindings(form, fx.plan, fx.regions);
         TargetNodePayload reversed = findPayload(reversedPayloads, structuralIdOf(btnGroupDiv));
 
         assertTrue("event_order_independence: forward present", forward != null);
@@ -878,7 +1149,7 @@ public class TargetPayloadExtractorTest {
         final List<SemanticRegionResult> finalRegions = fx.regions;
         assertThrowsIllegalState("event_missing_function_name", new Runnable() {
             public void run() {
-                new TargetPayloadExtractor().extract(finalForm, plan, finalRegions);
+                extractWithBindings(finalForm, plan, finalRegions);
             }
         });
     }
@@ -899,7 +1170,7 @@ public class TargetPayloadExtractorTest {
         final List<SemanticRegionResult> finalRegions = fx.regions;
         assertThrowsIllegalState("event_blank_event_name", new Runnable() {
             public void run() {
-                new TargetPayloadExtractor().extract(finalForm, plan, finalRegions);
+                extractWithBindings(finalForm, plan, finalRegions);
             }
         });
     }
@@ -920,7 +1191,7 @@ public class TargetPayloadExtractorTest {
         final List<SemanticRegionResult> finalRegions = fx.regions;
         assertThrowsIllegalState("event_blank_function_name", new Runnable() {
             public void run() {
-                new TargetPayloadExtractor().extract(finalForm, plan, finalRegions);
+                extractWithBindings(finalForm, plan, finalRegions);
             }
         });
     }
@@ -942,7 +1213,7 @@ public class TargetPayloadExtractorTest {
         final List<SemanticRegionResult> finalRegions = fx.regions;
         assertThrowsIllegalState("event_wrong_kind", new Runnable() {
             public void run() {
-                new TargetPayloadExtractor().extract(finalForm, plan, finalRegions);
+                extractWithBindings(finalForm, plan, finalRegions);
             }
         });
     }
@@ -964,7 +1235,7 @@ public class TargetPayloadExtractorTest {
         final List<SemanticRegionResult> finalRegions = fx.regions;
         assertThrowsIllegalState("non_event_function_name_injection", new Runnable() {
             public void run() {
-                new TargetPayloadExtractor().extract(finalForm, plan, finalRegions);
+                extractWithBindings(finalForm, plan, finalRegions);
             }
         });
     }
@@ -993,7 +1264,7 @@ public class TargetPayloadExtractorTest {
         final List<SemanticRegionResult> finalRegions = fx.regions;
         assertThrowsIllegalState("event_non_button_tamper", new Runnable() {
             public void run() {
-                new TargetPayloadExtractor().extract(finalForm, plan, finalRegions);
+                extractWithBindings(finalForm, plan, finalRegions);
             }
         });
     }
@@ -1020,7 +1291,7 @@ public class TargetPayloadExtractorTest {
         final List<SemanticRegionResult> finalRegions = fx.regions;
         assertThrowsIllegalState("button_caption_non_button_tamper", new Runnable() {
             public void run() {
-                new TargetPayloadExtractor().extract(finalForm, plan, finalRegions);
+                extractWithBindings(finalForm, plan, finalRegions);
             }
         });
     }
@@ -1076,7 +1347,7 @@ public class TargetPayloadExtractorTest {
             decisions.add(evaluator.evaluate(region));
         }
         TargetCompositionPlan plan = new TargetCompositionPlanBuilder().build(decisions);
-        List<TargetNodePayload> payloads = new TargetPayloadExtractor().extract(form, plan, regions);
+        List<TargetNodePayload> payloads = extractWithBindings(form, plan, regions);
         SemanticRegionResult buttonGroup = findRegionByFamily(regions, "BUTTON_GROUP");
         assertTrue("event_order: BUTTON_GROUP region found", buttonGroup != null);
         TargetNodePayload payload = findPayload(payloads, buttonGroup.getSourceStructuralId());
@@ -1300,7 +1571,7 @@ public class TargetPayloadExtractorTest {
         Element search = (Element) form.getElementsByTagName("Div").item(2);
         String planNodeId = structuralIdOf(search);
 
-        List<TargetNodePayload> payloads = new TargetPayloadExtractor().extract(form, fx.plan, fx.regions);
+        List<TargetNodePayload> payloads = extractWithBindings(form, fx.plan, fx.regions);
         TargetNodePayload payload = findPayload(payloads, planNodeId);
         assertTrue("search_area_payload: payload present", payload != null);
 
@@ -1396,7 +1667,7 @@ public class TargetPayloadExtractorTest {
             decisions.add(evaluator.evaluate(region));
         }
         TargetCompositionPlan plan = new TargetCompositionPlanBuilder().build(decisions);
-        List<TargetNodePayload> payloads = new TargetPayloadExtractor().extract(form, plan, regions);
+        List<TargetNodePayload> payloads = extractWithBindings(form, plan, regions);
         TargetNodePayload payload = findPayload(payloads, structuralIdOf(search));
         assertTrue("wrapper_normalization_evidence: payload present via full pipeline", payload != null);
         assertEquals("wrapper_normalization_evidence: 1 DISPLAY_TEXT + 1 CONTROL_TYPE",
@@ -1502,7 +1773,7 @@ public class TargetPayloadExtractorTest {
             decisions.add(evaluator.evaluate(region));
         }
         TargetCompositionPlan plan = new TargetCompositionPlanBuilder().build(decisions);
-        List<TargetNodePayload> payloads = new TargetPayloadExtractor().extract(form, plan, regions);
+        List<TargetNodePayload> payloads = extractWithBindings(form, plan, regions);
         TargetNodePayload payload = findPayload(payloads, structuralIdOf(container));
         assertTrue("business_table_payload: payload present", payload != null);
 
@@ -1588,7 +1859,7 @@ public class TargetPayloadExtractorTest {
         form.appendChild(dataset);
 
         Fixture fx = buildFixture(form);
-        List<TargetNodePayload> payloads = new TargetPayloadExtractor().extract(form, fx.plan, fx.regions);
+        List<TargetNodePayload> payloads = extractWithBindings(form, fx.plan, fx.regions);
         for (TargetNodePayload payload : payloads) {
             for (TargetLeafPayload item : payload.getItems()) {
                 assertTrue("binding_collision: no BINDING structural evidence guessed",
@@ -1672,7 +1943,7 @@ public class TargetPayloadExtractorTest {
 
         assertThrowsIllegalState("business_table_missing_region", new Runnable() {
             public void run() {
-                new TargetPayloadExtractor().extract(form, plan, emptyRegions);
+                extractWithBindings(form, plan, emptyRegions);
             }
         });
     }
@@ -1704,7 +1975,7 @@ public class TargetPayloadExtractorTest {
 
         assertThrowsIllegalState("business_table_wrong_family", new Runnable() {
             public void run() {
-                new TargetPayloadExtractor().extract(form, plan, regions);
+                extractWithBindings(form, plan, regions);
             }
         });
     }
@@ -1734,7 +2005,7 @@ public class TargetPayloadExtractorTest {
 
         assertThrowsIllegalState("business_table_duplicate_region", new Runnable() {
             public void run() {
-                new TargetPayloadExtractor().extract(form, plan, regions);
+                extractWithBindings(form, plan, regions);
             }
         });
     }
@@ -1765,7 +2036,7 @@ public class TargetPayloadExtractorTest {
 
         assertThrowsIllegalState("business_table_owner_mismatch", new Runnable() {
             public void run() {
-                new TargetPayloadExtractor().extract(form, plan, regions);
+                extractWithBindings(form, plan, regions);
             }
         });
     }
@@ -1794,7 +2065,7 @@ public class TargetPayloadExtractorTest {
         final List<SemanticRegionResult> finalRegions = regions;
         assertThrowsIllegalState("business_table_missing_component", new Runnable() {
             public void run() {
-                new TargetPayloadExtractor().extract(finalForm, plan, finalRegions);
+                extractWithBindings(finalForm, plan, finalRegions);
             }
         });
     }
@@ -1829,7 +2100,7 @@ public class TargetPayloadExtractorTest {
         final List<SemanticRegionResult> finalRegions = regions;
         assertThrowsIllegalState("business_table_outside_subtree", new Runnable() {
             public void run() {
-                new TargetPayloadExtractor().extract(finalForm, plan, finalRegions);
+                extractWithBindings(finalForm, plan, finalRegions);
             }
         });
     }
@@ -1860,7 +2131,7 @@ public class TargetPayloadExtractorTest {
         final List<SemanticRegionResult> finalRegions = regions;
         assertThrowsIllegalState("business_table_wrong_kind", new Runnable() {
             public void run() {
-                new TargetPayloadExtractor().extract(finalForm, plan, finalRegions);
+                extractWithBindings(finalForm, plan, finalRegions);
             }
         });
     }
@@ -1890,7 +2161,7 @@ public class TargetPayloadExtractorTest {
         final List<SemanticRegionResult> finalRegions = regions;
         assertThrowsIllegalState("business_table_role_mismatch", new Runnable() {
             public void run() {
-                new TargetPayloadExtractor().extract(finalForm, plan, finalRegions);
+                extractWithBindings(finalForm, plan, finalRegions);
             }
         });
     }
@@ -1922,7 +2193,7 @@ public class TargetPayloadExtractorTest {
 
         assertThrowsIllegalState("search_area_cannot_use_business_table_evidence", new Runnable() {
             public void run() {
-                new TargetPayloadExtractor().extract(form, plan, regions);
+                extractWithBindings(form, plan, regions);
             }
         });
     }
@@ -1953,7 +2224,7 @@ public class TargetPayloadExtractorTest {
 
         assertThrowsIllegalState("business_table_cannot_use_search_area_evidence", new Runnable() {
             public void run() {
-                new TargetPayloadExtractor().extract(form, plan, regions);
+                extractWithBindings(form, plan, regions);
             }
         });
     }
@@ -1975,14 +2246,14 @@ public class TargetPayloadExtractorTest {
         TargetCompositionPlan plan = new TargetCompositionPlanBuilder().build(decisions);
 
         Element container = (Element) form.getElementsByTagName("Div").item(0);
-        List<TargetNodePayload> payloadsForward = new TargetPayloadExtractor().extract(form, plan, regions);
+        List<TargetNodePayload> payloadsForward = extractWithBindings(form, plan, regions);
         TargetNodePayload forward = findPayload(payloadsForward, structuralIdOf(container));
 
         List<SemanticRegionResult> reversedRegions = new ArrayList<SemanticRegionResult>(regions);
         java.util.Collections.reverse(reversedRegions);
         java.util.Collections.reverse(businessTable.getPayloadEvidence());
 
-        List<TargetNodePayload> payloadsReversed = new TargetPayloadExtractor().extract(form, plan, reversedRegions);
+        List<TargetNodePayload> payloadsReversed = extractWithBindings(form, plan, reversedRegions);
         TargetNodePayload reversed = findPayload(payloadsReversed, structuralIdOf(container));
 
         assertTrue("business_table_order_independence: forward present", forward != null);
@@ -2026,7 +2297,7 @@ public class TargetPayloadExtractorTest {
             decisions.add(evaluator.evaluate(region));
         }
         TargetCompositionPlan plan = new TargetCompositionPlanBuilder().build(decisions);
-        List<TargetNodePayload> payloads = new TargetPayloadExtractor().extract(form, plan, regions);
+        List<TargetNodePayload> payloads = extractWithBindings(form, plan, regions);
         TargetNodePayload payload = findPayload(payloads, structuralIdOf(container));
         assertTrue("asymmetric_structured_data: payload present", payload != null);
         assertEquals("asymmetric_structured_data: 6 items", "6", String.valueOf(payload.getItems().size()));
@@ -2086,7 +2357,7 @@ public class TargetPayloadExtractorTest {
 
         assertThrowsIllegalState("business_table_null_row_index", new Runnable() {
             public void run() {
-                new TargetPayloadExtractor().extract(form, plan, regions);
+                extractWithBindings(form, plan, regions);
             }
         });
     }
@@ -2138,7 +2409,7 @@ public class TargetPayloadExtractorTest {
 
         assertThrowsIllegalState("business_table_conflicting_tuple", new Runnable() {
             public void run() {
-                new TargetPayloadExtractor().extract(form, plan, regions);
+                extractWithBindings(form, plan, regions);
             }
         });
     }
@@ -2172,7 +2443,7 @@ public class TargetPayloadExtractorTest {
 
         assertThrowsIllegalState("business_table_duplicate_row_cell_ownership", new Runnable() {
             public void run() {
-                new TargetPayloadExtractor().extract(form, plan, regions);
+                extractWithBindings(form, plan, regions);
             }
         });
     }
@@ -2207,7 +2478,7 @@ public class TargetPayloadExtractorTest {
 
         assertThrowsIllegalState("business_table_inconsistent_pair_metadata", new Runnable() {
             public void run() {
-                new TargetPayloadExtractor().extract(form, plan, regions);
+                extractWithBindings(form, plan, regions);
             }
         });
     }
@@ -2248,7 +2519,7 @@ public class TargetPayloadExtractorTest {
         regions.add(actualRegion);
 
         try {
-            new TargetPayloadExtractor().extract(form, plan, regions);
+            extractWithBindings(form, plan, regions);
             failures++;
             System.out.println("[FAIL] business_table_pair_cardinality_violation: expected IllegalStateException "
                     + "but none was thrown");
@@ -2282,11 +2553,11 @@ public class TargetPayloadExtractorTest {
         TargetCompositionPlan plan = new TargetCompositionPlanBuilder().build(decisions);
         Element container = (Element) form.getElementsByTagName("Div").item(0);
 
-        List<TargetNodePayload> forwardPayloads = new TargetPayloadExtractor().extract(form, plan, regions);
+        List<TargetNodePayload> forwardPayloads = extractWithBindings(form, plan, regions);
         TargetNodePayload forward = findPayload(forwardPayloads, structuralIdOf(container));
 
         java.util.Collections.reverse(businessTable.getPayloadEvidence());
-        List<TargetNodePayload> reversedPayloads = new TargetPayloadExtractor().extract(form, plan, regions);
+        List<TargetNodePayload> reversedPayloads = extractWithBindings(form, plan, regions);
         TargetNodePayload reversed = findPayload(reversedPayloads, structuralIdOf(container));
 
         assertEquals("business_table_structural_order_independence: same item count",
@@ -2322,7 +2593,7 @@ public class TargetPayloadExtractorTest {
             evidenceByComponent.put(item.getSourceComponentStructuralId(), item);
         }
 
-        List<TargetNodePayload> payloads = new TargetPayloadExtractor().extract(form, fx.plan, fx.regions);
+        List<TargetNodePayload> payloads = extractWithBindings(form, fx.plan, fx.regions);
         TargetNodePayload payload = findPayload(payloads, structuralIdOf(search));
         assertTrue("search_area_structured_data_preserved: payload present", payload != null);
         assertTrue("search_area_structured_data_preserved: at least one leaf", !payload.getItems().isEmpty());
@@ -2384,7 +2655,7 @@ public class TargetPayloadExtractorTest {
             decisions.add(evaluator.evaluate(region));
         }
         TargetCompositionPlan plan = new TargetCompositionPlanBuilder().build(decisions);
-        List<TargetNodePayload> payloads = new TargetPayloadExtractor().extract(form, plan, regions);
+        List<TargetNodePayload> payloads = extractWithBindings(form, plan, regions);
         TargetNodePayload payload = findPayload(payloads, structuralIdOf(search));
         assertTrue("multi_row_pairs: payload present", payload != null);
         assertEquals("multi_row_pairs: 6 leaves (3 labels + 3 controls)", "6", String.valueOf(payload.getItems().size()));
@@ -2523,7 +2794,7 @@ public class TargetPayloadExtractorTest {
 
         assertThrowsIllegalState("business_table_vertical_plan_horizontal_region", new Runnable() {
             public void run() {
-                new TargetPayloadExtractor().extract(form, plan, regions);
+                extractWithBindings(form, plan, regions);
             }
         });
     }
@@ -2555,7 +2826,7 @@ public class TargetPayloadExtractorTest {
         List<SemanticRegionResult> regions = new ArrayList<SemanticRegionResult>();
         regions.add(actualRegion);
 
-        List<TargetNodePayload> payloads = new TargetPayloadExtractor().extract(form, plan, regions);
+        List<TargetNodePayload> payloads = extractWithBindings(form, plan, regions);
         TargetNodePayload payload = findPayload(payloads, x);
         assertTrue("business_table_horizontal_match: payload present", payload != null);
         assertEquals("business_table_horizontal_match: item count", "2", String.valueOf(payload.getItems().size()));
@@ -2603,7 +2874,7 @@ public class TargetPayloadExtractorTest {
         final List<SemanticRegionResult> finalRegions = regions;
         assertThrowsIllegalState("button_group_variant_mismatch", new Runnable() {
             public void run() {
-                new TargetPayloadExtractor().extract(finalForm, plan, finalRegions);
+                extractWithBindings(finalForm, plan, finalRegions);
             }
         });
     }
@@ -2639,7 +2910,7 @@ public class TargetPayloadExtractorTest {
 
         assertThrowsIllegalState("business_table_vertical_vertical_unemittable", new Runnable() {
             public void run() {
-                new TargetPayloadExtractor().extract(form, plan, regions);
+                extractWithBindings(form, plan, regions);
             }
         });
     }
@@ -2687,7 +2958,7 @@ public class TargetPayloadExtractorTest {
 
         assertThrowsIllegalState("button_group_embedded_embedded_unemittable", new Runnable() {
             public void run() {
-                new TargetPayloadExtractor().extract(form, plan, regions);
+                extractWithBindings(form, plan, regions);
             }
         });
     }
@@ -2723,7 +2994,7 @@ public class TargetPayloadExtractorTest {
 
         assertThrowsIllegalState("button_group_fixed_footer_fixed_footer_unemittable", new Runnable() {
             public void run() {
-                new TargetPayloadExtractor().extract(form, plan, regions);
+                extractWithBindings(form, plan, regions);
             }
         });
     }
@@ -2750,7 +3021,7 @@ public class TargetPayloadExtractorTest {
         assertEquals("button_group_standalone_variant: actual variant is standalone",
                 "standalone", buttonGroup.getRecommendedVariant());
 
-        List<TargetNodePayload> payloads = new TargetPayloadExtractor().extract(form, fx.plan, fx.regions);
+        List<TargetNodePayload> payloads = extractWithBindings(form, fx.plan, fx.regions);
         TargetNodePayload payload = findPayload(payloads, buttonGroup.getSourceStructuralId());
         assertTrue("button_group_standalone_variant: payload present", payload != null);
         assertEquals("button_group_standalone_variant: 1 caption item", "1", String.valueOf(payload.getItems().size()));
@@ -2767,7 +3038,7 @@ public class TargetPayloadExtractorTest {
         assertEquals("button_group_title_bar_attached_variant: actual variant is title_bar_attached",
                 "title_bar_attached", buttonGroup.getRecommendedVariant());
 
-        List<TargetNodePayload> payloads = new TargetPayloadExtractor().extract(form, fx.plan, fx.regions);
+        List<TargetNodePayload> payloads = extractWithBindings(form, fx.plan, fx.regions);
         Element btnGroupDiv = (Element) form.getElementsByTagName("Div").item(1);
         TargetNodePayload payload = findPayload(payloads, structuralIdOf(btnGroupDiv));
         assertTrue("button_group_title_bar_attached_variant: payload present", payload != null);
@@ -2820,7 +3091,7 @@ public class TargetPayloadExtractorTest {
 
         assertThrowsIllegalState("wrong_family", new Runnable() {
             public void run() {
-                new TargetPayloadExtractor().extract(form, plan, regions);
+                extractWithBindings(form, plan, regions);
             }
         });
     }
@@ -2850,7 +3121,7 @@ public class TargetPayloadExtractorTest {
 
         assertThrowsIllegalState("duplicate_region", new Runnable() {
             public void run() {
-                new TargetPayloadExtractor().extract(form, plan, regions);
+                extractWithBindings(form, plan, regions);
             }
         });
     }
@@ -2883,7 +3154,7 @@ public class TargetPayloadExtractorTest {
 
         assertThrowsIllegalState("owner_mismatch", new Runnable() {
             public void run() {
-                new TargetPayloadExtractor().extract(form, plan, regions);
+                extractWithBindings(form, plan, regions);
             }
         });
     }
@@ -2907,7 +3178,7 @@ public class TargetPayloadExtractorTest {
 
         assertThrowsIllegalState("missing_region", new Runnable() {
             public void run() {
-                new TargetPayloadExtractor().extract(form, plan, emptyRegions);
+                extractWithBindings(form, plan, emptyRegions);
             }
         });
     }
@@ -2927,7 +3198,7 @@ public class TargetPayloadExtractorTest {
         final List<SemanticRegionResult> finalRegions = regions;
 
         try {
-            new TargetPayloadExtractor().extract(null, plan, finalRegions);
+            extractWithBindings(null, plan, finalRegions);
             failures++;
             System.out.println("[FAIL] source_root_null: expected IllegalArgumentException but none was thrown");
         } catch (IllegalArgumentException e) {
@@ -2968,7 +3239,7 @@ public class TargetPayloadExtractorTest {
         TargetCompositionPlan plan = new TargetCompositionPlanBuilder().build(decisions);
 
         Element search = (Element) form.getElementsByTagName("Div").item(2);
-        List<TargetNodePayload> payloads = new TargetPayloadExtractor().extract(form, plan, regions);
+        List<TargetNodePayload> payloads = extractWithBindings(form, plan, regions);
         TargetNodePayload payload = findPayload(payloads, structuralIdOf(search));
         assertTrue("absent_kind: payload still present", payload != null);
         assertEquals("absent_kind: leaf count unchanged (null-value label leaf survives, nothing dropped)",
@@ -3018,7 +3289,7 @@ public class TargetPayloadExtractorTest {
         final List<SemanticRegionResult> finalRegions = regions;
         assertThrowsIllegalState("invalid_kind_value", new Runnable() {
             public void run() {
-                new TargetPayloadExtractor().extract(finalForm, plan, finalRegions);
+                extractWithBindings(finalForm, plan, finalRegions);
             }
         });
     }
@@ -3047,7 +3318,7 @@ public class TargetPayloadExtractorTest {
         final List<SemanticRegionResult> finalRegions = regions;
         assertThrowsIllegalState("nonexistent_component", new Runnable() {
             public void run() {
-                new TargetPayloadExtractor().extract(finalForm, plan, finalRegions);
+                extractWithBindings(finalForm, plan, finalRegions);
             }
         });
     }
@@ -3080,7 +3351,7 @@ public class TargetPayloadExtractorTest {
         final List<SemanticRegionResult> finalRegions = regions;
         assertThrowsIllegalState("outside_subtree", new Runnable() {
             public void run() {
-                new TargetPayloadExtractor().extract(finalForm, plan, finalRegions);
+                extractWithBindings(finalForm, plan, finalRegions);
             }
         });
     }
@@ -3111,7 +3382,7 @@ public class TargetPayloadExtractorTest {
         final List<SemanticRegionResult> finalRegions = regions;
         assertThrowsIllegalState("duplicate_order", new Runnable() {
             public void run() {
-                new TargetPayloadExtractor().extract(finalForm, plan, finalRegions);
+                extractWithBindings(finalForm, plan, finalRegions);
             }
         });
     }
@@ -3132,7 +3403,7 @@ public class TargetPayloadExtractorTest {
         }
         TargetCompositionPlan plan = new TargetCompositionPlanBuilder().build(decisions);
 
-        List<TargetNodePayload> payloadsForward = new TargetPayloadExtractor().extract(form, plan, regions);
+        List<TargetNodePayload> payloadsForward = extractWithBindings(form, plan, regions);
 
         List<SemanticRegionResult> reversedRegions = new ArrayList<SemanticRegionResult>(regions);
         java.util.Collections.reverse(reversedRegions);
@@ -3140,7 +3411,7 @@ public class TargetPayloadExtractorTest {
         java.util.Collections.reverse(searchArea.getPayloadEvidence());
 
         List<TargetNodePayload> payloadsReversed =
-                new TargetPayloadExtractor().extract(form, plan, reversedRegions);
+                extractWithBindings(form, plan, reversedRegions);
 
         TargetNodePayload forward = findPayload(payloadsForward, structuralIdOf(
                 (Element) form.getElementsByTagName("Div").item(2)));
@@ -3183,7 +3454,7 @@ public class TargetPayloadExtractorTest {
             decisions.add(evaluator.evaluate(region));
         }
         TargetCompositionPlan plan = new TargetCompositionPlanBuilder().build(decisions);
-        List<TargetNodePayload> payloads = new TargetPayloadExtractor().extract(form, plan, regions);
+        List<TargetNodePayload> payloads = extractWithBindings(form, plan, regions);
         Element titleBarDiv = (Element) form.getElementsByTagName("Div").item(0);
         TargetNodePayload payload = findPayload(payloads, structuralIdOf(titleBarDiv));
         assertTrue("title_bar_evidence: payload present via evidence-only path", payload != null);
@@ -3216,7 +3487,7 @@ public class TargetPayloadExtractorTest {
         final List<SemanticRegionResult> finalRegions = regions;
         assertThrowsIllegalState("title_bar_wrong_role", new Runnable() {
             public void run() {
-                new TargetPayloadExtractor().extract(finalForm, plan, finalRegions);
+                extractWithBindings(finalForm, plan, finalRegions);
             }
         });
     }
@@ -3245,7 +3516,7 @@ public class TargetPayloadExtractorTest {
         final List<SemanticRegionResult> finalRegions = regions;
         assertThrowsIllegalState("title_bar_owner_mismatch", new Runnable() {
             public void run() {
-                new TargetPayloadExtractor().extract(finalForm, plan, finalRegions);
+                extractWithBindings(finalForm, plan, finalRegions);
             }
         });
     }
@@ -3273,7 +3544,7 @@ public class TargetPayloadExtractorTest {
         final List<SemanticRegionResult> finalRegions = regions;
         assertThrowsIllegalState("title_bar_missing_component", new Runnable() {
             public void run() {
-                new TargetPayloadExtractor().extract(finalForm, plan, finalRegions);
+                extractWithBindings(finalForm, plan, finalRegions);
             }
         });
     }
@@ -3336,7 +3607,7 @@ public class TargetPayloadExtractorTest {
             decisions.add(evaluator.evaluate(region));
         }
         TargetCompositionPlan plan = new TargetCompositionPlanBuilder().build(decisions);
-        List<TargetNodePayload> payloads = new TargetPayloadExtractor().extract(form, plan, regions);
+        List<TargetNodePayload> payloads = extractWithBindings(form, plan, regions);
         TargetNodePayload payload = findPayload(payloads, structuralIdOf(container));
         assertTrue("wrapper_button_evidence: payload present", payload != null);
         assertEquals("wrapper_button_evidence: payload item count matches evidence",
@@ -3407,7 +3678,7 @@ public class TargetPayloadExtractorTest {
         form.appendChild(groupB);
 
         Fixture fx = buildFixture(form);
-        List<TargetNodePayload> payloads = new TargetPayloadExtractor().extract(form, fx.plan, fx.regions);
+        List<TargetNodePayload> payloads = extractWithBindings(form, fx.plan, fx.regions);
 
         TargetNodePayload payloadA = findPayload(payloads, structuralIdOf(groupA));
         TargetNodePayload payloadB = findPayload(payloads, structuralIdOf(groupB));
@@ -3435,11 +3706,11 @@ public class TargetPayloadExtractorTest {
         TargetCompositionPlan plan = new TargetCompositionPlanBuilder().build(decisions);
         Element btnGroupDiv = (Element) form.getElementsByTagName("Div").item(1);
 
-        List<TargetNodePayload> forwardPayloads = new TargetPayloadExtractor().extract(form, plan, regions);
+        List<TargetNodePayload> forwardPayloads = extractWithBindings(form, plan, regions);
         TargetNodePayload forward = findPayload(forwardPayloads, structuralIdOf(btnGroupDiv));
 
         java.util.Collections.reverse(buttonGroup.getPayloadEvidence());
-        List<TargetNodePayload> reversedPayloads = new TargetPayloadExtractor().extract(form, plan, regions);
+        List<TargetNodePayload> reversedPayloads = extractWithBindings(form, plan, regions);
         TargetNodePayload reversed = findPayload(reversedPayloads, structuralIdOf(btnGroupDiv));
 
         assertTrue("button_group_order_independence: forward present", forward != null);
@@ -3506,7 +3777,7 @@ public class TargetPayloadExtractorTest {
         final List<SemanticRegionResult> finalRegions = regions;
         assertThrowsIllegalState("tab_control_wrong_role", new Runnable() {
             public void run() {
-                new TargetPayloadExtractor().extract(finalForm, plan, finalRegions);
+                extractWithBindings(finalForm, plan, finalRegions);
             }
         });
     }

@@ -109,11 +109,11 @@ PASS
 
 ## 8. 남은 known gaps
 
-Defect 2(CONTENT_NOT_READY)는 Slice 99A에서, GRID-3(다중 Format)는 Slice 99B correction에서 각각
-CLOSED_CONTRACT_LIMITATION으로 종결(`docs/OFFLINE-USER-GUIDE.md` 항목 13 참고 -- GRID-3는 Format 1개는
-완전 지원하고, 2개 이상은 활성 Format을 고를 증명된 source selector가 없어 렌더러 도달 전에
-fail-closed된다). 남은 제품/Runtime known gap 2건: CheckBox dataset-bound(OPEN), `ev:onpageload` 자동
-발화 신뢰성(AUTO_PAGE_INIT_NOT_VERIFIED/OBSERVED).
+Defect 2(CONTENT_NOT_READY)는 Slice 99A에서, GRID-3(다중 Format)는 Slice 99B correction에서, CheckBox
+dataset-bound는 Slice 99C에서 각각 CLOSED_CONTRACT_LIMITATION으로 종결(`docs/OFFLINE-USER-GUIDE.md`
+항목 13 참고 -- CheckBox는 unbound는 그대로 지원, id를 가리키는 BindItem이 있으면 propid/값 계약
+미증명으로 렌더러 도달 전 fail-closed). 남은 제품/Runtime known gap 1건: `ev:onpageload` 자동 발화
+신뢰성(AUTO_PAGE_INIT_NOT_VERIFIED/OBSERVED).
 
 별도 certification blocker 1건: Target JDK 1.8.0_111 확보/검증(BLOCKED_BY_DISTRIBUTION — 폐쇄망에서
 별도 확보 필요, `verify-offline.*`의 1단계 게이트로 확인).

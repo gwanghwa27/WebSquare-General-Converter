@@ -1,6 +1,7 @@
 package com.example.xfdltracker.payload;
 
 import com.example.xfdltracker.analyzer.SourcePredicateVariantContract;
+import com.example.xfdltracker.binding.SourceBindingReference;
 import com.example.xfdltracker.composition.CompositionDecision;
 import com.example.xfdltracker.composition.TargetCompositionNode;
 import com.example.xfdltracker.composition.TargetCompositionPlan;
@@ -59,14 +60,21 @@ public final class TargetPayloadExtractor {
 
     private final GridFormatParser gridFormatParser = new GridFormatParser();
 
+    /** binding evidence는 반드시 상위 orchestration(예: {@code TargetWebSquarePipeline})이 미리
+     *  계산해 넘겨야 한다 -- 이 클래스는 어떤 binding analyzer도 스스로 호출하지 않는다. */
     public List<TargetNodePayload> extract(
-            Element sourceRoot, TargetCompositionPlan plan, List<SemanticRegionResult> regions) {
+            Element sourceRoot, TargetCompositionPlan plan, List<SemanticRegionResult> regions,
+            List<SourceBindingReference> bindingReferences) {
         // sourceRoot는 optional escape hatch가 아니다 -- provenance validation을 건너뛰는 경로를 없앤다.
         if (sourceRoot == null) {
             throw new IllegalArgumentException(
                     "target_payload_extractor: sourceRoot must not be null -- source component "
                             + "provenance validation cannot be skipped");
         }
+        // Slice 99C correction -- binding 선언 evidence는 upstream(SourceBindingAnalyzer)에서 이미
+        // 정확히 한 번 resolve된 채로 들어온다. 여기서는 raw source를 다시 스캔하지 않는다.
+        List<SourceBindingReference> bindings = bindingReferences == null
+                ? Collections.<SourceBindingReference>emptyList() : bindingReferences;
 
         Map<String, List<Element>> elementsByStructuralId = new LinkedHashMap<String, List<Element>>();
         indexStructuralIdentities(sourceRoot, elementsByStructuralId);
@@ -99,7 +107,7 @@ public final class TargetPayloadExtractor {
                 // 비어 있어도(예: 0..1 cardinality) envelope 자체는 항상 만든다 -- "검증된 leaf
                 // 0개"와 "envelope 자체 없음"을 renderer가 구분할 수 있어야 한다.
                 List<TargetLeafPayload> items = extractFromEvidence(
-                        node, node.getFamily(), regionsByStructuralId, elementsByStructuralId);
+                        node, node.getFamily(), regionsByStructuralId, elementsByStructuralId, bindings);
                 // 모든 evidence-backed family envelope은 identityKind를 함께 싣는다(node.getOrigin()에서
                 // 직접 유도, 문자열 parsing 없음).
                 Integer expectedStructuralMemberCount = "BUTTON_GROUP".equals(node.getFamily())
@@ -174,7 +182,8 @@ public final class TargetPayloadExtractor {
             TargetCompositionNode node,
             String family,
             Map<String, List<SemanticRegionResult>> regionsByStructuralId,
-            Map<String, List<Element>> elementsByStructuralId) {
+            Map<String, List<Element>> elementsByStructuralId,
+            List<SourceBindingReference> bindingReferences) {
         String structuralId = node.getSourceStructuralId();
         List<SemanticRegionResult> candidates = regionsByStructuralId.get(structuralId);
         if (candidates == null || candidates.isEmpty()) {
@@ -255,6 +264,7 @@ public final class TargetPayloadExtractor {
                                 + " is not a descendant of region anchor " + region.getSourceStructuralId());
             }
             validateSourceElementRoleContract(family, item.getEvidenceRole(), leaf);
+            rejectDatasetBoundCheckBox(leaf, item.getSourceComponentStructuralId(), bindingReferences);
         }
         validateBusinessTableStructuralIntegrity(family, evidence);
 
@@ -454,6 +464,36 @@ public final class TargetPayloadExtractor {
         String tagName = element.getTagName();
         int colon = tagName.indexOf(':');
         return colon >= 0 ? tagName.substring(colon + 1) : tagName;
+    }
+
+    /**
+     * upstream(예: {@code TargetWebSquarePipeline} -&gt; {@code SourceBindingAnalyzer})이 이미 계산해
+     * 넘긴 evidence만 소비한다(raw source 재스캔 없음). exact-resolved든 ambiguous 후보 포함이든
+     * 이 CheckBox를 가리키면 값 계약이 증명되지 않았으므로 각기 다른 명시적 사유로 fail-closed한다.
+     */
+    private void rejectDatasetBoundCheckBox(
+            Element leaf, String leafStructuralId, List<SourceBindingReference> bindingReferences) {
+        if (!"CheckBox".equals(sourceTagName(leaf))) {
+            return;
+        }
+        for (SourceBindingReference reference : bindingReferences) {
+            if (reference.getResolution() == SourceBindingReference.ComponentResolution.RESOLVED_EXACT_ONE_COMPONENT
+                    && leafStructuralId.equals(reference.getResolvedComponentStructuralIdentity())) {
+                throw new IllegalStateException(
+                        "target_payload_extractor: CheckBox is the exact-resolved target of a source BindItem "
+                                + "with no proven propid/value-semantics contract for CheckBox -- refusing to "
+                                + "guess (checkbox_dataset_binding_no_proven_target_contract:compid="
+                                + reference.getCompid() + ")");
+            }
+            if (reference.getResolution() == SourceBindingReference.ComponentResolution.UNRESOLVED_AMBIGUOUS_COMPONENT_MATCH
+                    && reference.getCandidateComponentStructuralIdentities().contains(leafStructuralId)) {
+                throw new IllegalStateException(
+                        "target_payload_extractor: CheckBox is one of multiple ambiguous candidates for a source "
+                                + "BindItem component reference -- refusing to guess which candidate is intended "
+                                + "(checkbox_dataset_binding_component_reference_ambiguous:compid="
+                                + reference.getCompid() + ")");
+            }
+        }
     }
 
     /**

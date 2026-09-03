@@ -1,5 +1,7 @@
 package com.example.xfdltracker.analyzer;
 
+import com.example.xfdltracker.binding.SourceBindingAnalyzer;
+import com.example.xfdltracker.binding.SourceBindingReference;
 import com.example.xfdltracker.composition.CompositionDecision;
 import com.example.xfdltracker.composition.CompositionEvaluator;
 import com.example.xfdltracker.composition.TargetCompositionPlan;
@@ -910,7 +912,7 @@ public class SemanticRegionSegmenterTest {
             decisions.add(evaluator.evaluate(region));
         }
         TargetCompositionPlan plan = new TargetCompositionPlanBuilder().build(decisions);
-        List<TargetNodePayload> payloads = new TargetPayloadExtractor().extract(form, plan, regions);
+        List<TargetNodePayload> payloads = extractWithBindings(form, plan, regions);
 
         TargetNodePayload payload = null;
         for (TargetNodePayload p : payloads) {
@@ -1089,6 +1091,15 @@ public class SemanticRegionSegmenterTest {
             }
         }
         return null;
+    }
+
+    /** test-only convenience -- production {@link TargetPayloadExtractor}는 binding evidence를
+     *  스스로 계산하지 않으므로, 여기서 {@link SourceBindingAnalyzer}를 먼저 호출해 넘겨준다. */
+    private static List<TargetNodePayload> extractWithBindings(
+            Element sourceRoot, TargetCompositionPlan plan, List<SemanticRegionResult> regions) {
+        List<SourceBindingReference> bindingReferences = sourceRoot == null
+                ? new ArrayList<SourceBindingReference>() : new SourceBindingAnalyzer().analyze(sourceRoot);
+        return new TargetPayloadExtractor().extract(sourceRoot, plan, regions, bindingReferences);
     }
 
     private static Document newDocument() throws Exception {
