@@ -310,8 +310,13 @@ verifier는 legacy 변환 출력에 의존하는 절차이며, 현재 `verify-of
    corpus/dev pack 어디에도 없으며**, CheckBox의 checked/unchecked 값 semantics와 target
    `w2:checkbox` binding/runtime 계약 모두 증명되지 않았다. accepted binding resolution은
    evidence-bounded exact-reference subset뿐이다(`SourceBindingAnalyzer`가 compid를 문서 안
-   id-attribute exact match로만 resolve, dotted-path 등 미증명 확장 없음). unbound CheckBox
-   (corpus 유일 사례)는 기존과 동일하게 그대로 지원된다. source의 어떤 BindItem이 정확히 하나의
+   id-attribute exact match로만 resolve, dotted-path 등 미증명 확장 없음). CheckBox를 가리키는
+   BindItem이 존재하지 않으면(unbound, corpus 유일 사례) 이 dataset-bound 계약-한계 거부 경로 자체가
+   발동되지 않으며, 파이프라인은 구조적으로 현재 accepted-v6 unbound 표현(`<xf:select
+   appearance="full"/>`)을 발행할 수 있다. **단, 이 문장은 그 출력이 historical `w2:checkbox`/
+   `addItem` evidence와 runtime rendering/interaction/value/checked/label semantics 측면에서
+   동등함을 증명하는 것이 아니다** -- 그 rendering-equivalence는 별도로 `NOT_VERIFIED`다(항목 13-5
+   참고). source의 어떤 BindItem이 정확히 하나의
    CheckBox Element로 exact resolve되면 `TargetPayloadExtractor`가 그 의미를 추측하지 않고 렌더러
    도달 전에 fail-closed된다(`checkbox_dataset_binding_no_proven_target_contract`). 같은 id를
    가진 Element가 2개 이상이라 ambiguous하게 resolve될 때 그 후보 중 하나가 이 CheckBox이면 --
