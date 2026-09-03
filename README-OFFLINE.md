@@ -109,9 +109,9 @@ PASS
 
 ## 8. 남은 known gaps
 
-제품/Runtime known gap 4건: Defect 2(CONTENT_NOT_READY, OPEN/CONTRACT_LIMITATION), GRID-3(다중
-Format, UNSUPPORTED_SEMANTIC), CheckBox dataset-bound(OPEN), `ev:onpageload` 자동 발화 신뢰성
-(AUTO_PAGE_INIT_NOT_VERIFIED/OBSERVED).
+Defect 2(CONTENT_NOT_READY)는 Slice 99A에서 CLOSED_CONTRACT_LIMITATION으로 종결(`docs/OFFLINE-USER-GUIDE.md`
+항목 13 참고). 남은 제품/Runtime known gap 3건: GRID-3(다중 Format, UNSUPPORTED_SEMANTIC), CheckBox
+dataset-bound(OPEN), `ev:onpageload` 자동 발화 신뢰성(AUTO_PAGE_INIT_NOT_VERIFIED/OBSERVED).
 
 별도 certification blocker 1건: Target JDK 1.8.0_111 확보/검증(BLOCKED_BY_DISTRIBUTION — 폐쇄망에서
 별도 확보 필요, `verify-offline.*`의 1단계 게이트로 확인).

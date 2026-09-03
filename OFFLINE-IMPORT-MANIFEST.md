@@ -51,9 +51,11 @@ wrapper id(`grp_resultArea`/`grp_main`)에 대한 기존 script/XJS reference는
 (`NEW_WRAPPER_SCRIPT_REFERENCE = 0`) — runtime risk가 0으로 증명된 것은 아니며, 단지 기존
 script/XJS에서 이 wrapper-ID를 참조하는 코드가 발견되지 않았다는 의미다.
 
-## 현재 known product/runtime gaps (6건, 변경 없음)
+## 현재 known product/runtime gaps (6건, 항목 1은 Slice 99A에서 CLOSED_CONTRACT_LIMITATION으로 종결)
 
-1. **Defect 2** — `CONTENT_NOT_READY` false-negative: **OPEN / CONTRACT_LIMITATION**
+1. **Defect 2** — `CONTENT_NOT_READY` false-negative: **CLOSED_CONTRACT_LIMITATION**(Slice 99A,
+   `docs/OFFLINE-USER-GUIDE.md` 항목 13 참고 — Tab 동적 navigation은 SourceScriptAnalyzer가 결정적으로
+   fail-closed하므로 이 계열의 런타임 브리지가 accepted 아키텍처에서는 생성되지 않는다)
 2. **GRID-3** — 다중 Format(default/alternate) 전환: **UNSUPPORTED_SEMANTIC**
 3. **CheckBox dataset-bound**: **OPEN**
 4. **`ev:onpageload` reliability**: **OBSERVED**

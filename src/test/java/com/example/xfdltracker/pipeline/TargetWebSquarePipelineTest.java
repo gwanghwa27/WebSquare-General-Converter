@@ -27,6 +27,8 @@ public class TargetWebSquarePipelineTest {
         testNoExecutableUcCallEmptyRequirementsAllowed();
         testKnownUcCallWithAvailableCapabilityStillFailsClosedAtGeneralBehaviorLane();
         testKnownUcCallWithUnavailableCapabilityFailsClosed();
+        testDefect2TabDynamicSetUrlMemberCallClosedAsContractLimitation();
+        testDefect2TabDynamicAddTabMemberCallClosedAsContractLimitationGeneric();
         testUnknownUcAliasFailsClosedNoPartialOutput();
         testUnsupportedUcSyntaxFailsClosedNoPartialOutput();
         testUcTextOnlyInStringDoesNotCreateRequirement();
@@ -208,6 +210,40 @@ public class TargetWebSquarePipelineTest {
         }
         assertTrue("known uc call with capability NOT available: fails closed before final publication", threw);
         assertTrue("no partial target XML published on unavailable-capability failure", !output.exists());
+    }
+
+    /**
+     * Slice 99A(Defect 2 closure) -- Tab 동적 navigation(예: {@code someTab.setUrl(...)})은 SourceScriptAnalyzer의
+     * 닫힌 문법상 {@code identifier.member} 형태라 항상 UNSUPPORTED_SYNTAX로 fail-closed되므로, 레거시에서
+     * 관찰된 CONTENT_NOT_READY 비동기 오탐(race condition)이 발생할 런타임 브리지 자체가 절대 생성되지 않는다.
+     */
+    private static void testDefect2TabDynamicSetUrlMemberCallClosedAsContractLimitation() throws Exception {
+        File source = fixtureWithScript("this.doNavigate = function() { tabA.setUrl('formA'); };");
+        File output = tempOutput();
+        boolean threw = false;
+        try {
+            new TargetWebSquarePipeline().convert(source, output, new TargetPipelineConfig(TargetRuntimeProfile.empty()));
+        } catch (IllegalStateException e) {
+            threw = true;
+            assertTrue("defect2 setUrl: failure reason names the evidence category, not a screen id",
+                    e.getMessage() != null && e.getMessage().contains("UNSUPPORTED_SYNTAX"));
+        }
+        assertTrue("defect2 setUrl: pipeline fails closed before final publication", threw);
+        assertTrue("defect2 setUrl: no partial/invalid target XML is ever published", !output.exists());
+    }
+
+    /** 위 항목과 동일 계약이 다른 식별자/멤버 이름(스크린-특정 아님, 일반적 계약)에도 동일하게 적용됨을 증명한다. */
+    private static void testDefect2TabDynamicAddTabMemberCallClosedAsContractLimitationGeneric() throws Exception {
+        File source = fixtureWithScript("this.doOpen = function() { myTabControl.addTab('pageId', 'label'); };");
+        File output = tempOutput();
+        boolean threw = false;
+        try {
+            new TargetWebSquarePipeline().convert(source, output, new TargetPipelineConfig(TargetRuntimeProfile.empty()));
+        } catch (IllegalStateException e) {
+            threw = true;
+        }
+        assertTrue("defect2 addTab (generic fixture): pipeline fails closed before final publication", threw);
+        assertTrue("defect2 addTab (generic fixture): no partial/invalid target XML is ever published", !output.exists());
     }
 
     private static void testUnknownUcAliasFailsClosedNoPartialOutput() throws Exception {

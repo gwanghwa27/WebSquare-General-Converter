@@ -273,9 +273,16 @@ verifier는 legacy 변환 출력에 의존하는 절차이며, 현재 `verify-of
 
 ## 13. 현재 남은 제한
 
-**제품/Runtime known gap 4건**:
-1. Defect 2 — `CONTENT_NOT_READY` false-negative: **OPEN / CONTRACT_LIMITATION**. 동적 `set_url()`
-   경로에서 `setUrl()`의 성공 콜백/Promise를 신뢰하는 로직이 실패로 오탐될 수 있음.
+**제품/Runtime known gap**(Defect 2는 Slice 99A에서 CLOSED_CONTRACT_LIMITATION으로 종결, 나머지 3건은 그대로):
+1. Defect 2 — `CONTENT_NOT_READY` false-negative: **CLOSED_CONTRACT_LIMITATION**(Slice 99A). Tab 동적
+   navigation(`someTab.setUrl(...)`/`addTab(...)` 등)은 `identifier.member` 형태라 `SourceScriptAnalyzer`가
+   항상 `UNSUPPORTED_SYNTAX`로 결정적으로 거부하며, `TargetWebSquarePipeline`은 이 시점에 전체 변환을
+   중단하고 대상 XML을 전혀 발행하지 않는다(`TargetWebSquarePipelineTest`의
+   `testDefect2TabDynamicSetUrlMemberCallClosedAsContractLimitation`/
+   `testDefect2TabDynamicAddTabMemberCallClosedAsContractLimitationGeneric`, `SourceScriptAnalyzerTest`의
+   `testDefect2TabDynamicNavigationMemberCallFailsClosedGenerically`로 검증). 즉 레거시에서 관찰된
+   비동기 readiness 오탐(race condition)을 만들어낼 런타임 브리지 자체가 accepted 아키텍처에서는
+   생성되지 않는다 -- 안전하지 않은 재현 대신 명시적 fail-closed 계약으로 닫힌 상태다.
 2. GRID-3 — 다중 Format(default/alternate) 전환: **UNSUPPORTED_SEMANTIC**. WebSquare gridView 구조상
    표현 불가, 수동 재설계 필요.
 3. CheckBox — dataset-bound 케이스: **OPEN**. shipped 참조 사례가 없어 안전한 일반화 근거 없음.

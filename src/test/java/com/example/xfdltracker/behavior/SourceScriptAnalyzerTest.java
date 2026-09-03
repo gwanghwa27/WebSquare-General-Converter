@@ -39,6 +39,7 @@ public class SourceScriptAnalyzerTest {
         testTernaryExpression();
         testCommentsAndWhitespaceNotSemanticAuthority();
         testForbiddenConstructsFailClosed();
+        testDefect2TabDynamicNavigationMemberCallFailsClosedGenerically();
 
         // ==== 지원되는 단일 문장 제어흐름 body 관련 항목
         // (CONTROL_FLOW_BLOCK_BODY_SUPPORTED / CONTROL_FLOW_SINGLE_STATEMENT_BODY_SUPPORTED)도 포함 ====
@@ -310,6 +311,27 @@ public class SourceScriptAnalyzerTest {
                     String.valueOf(result.getStatus()));
             assertTrue("forbidden[" + entry.getKey() + "]: analysis absent", result.getAnalysis() == null);
         }
+    }
+
+    /**
+     * Slice 99A(Defect 2 closure) -- Tab 동적 navigation({@code setUrl}/{@code addTab})은 {@code identifier.member}
+     * 형태이므로 항상 UNSUPPORTED_SYNTAX로 거부되며, 이유 문구는 화면 이름이 아닌 식별자/구문 범주만 담는다.
+     * 두 fixture(setUrl/addTab, 서로 다른 식별자명)로 화면-특정이 아닌 일반 계약임을 증명한다.
+     */
+    private static void testDefect2TabDynamicNavigationMemberCallFailsClosedGenerically() {
+        SourceScriptAnalysisResult setUrlResult =
+                new SourceScriptAnalyzer().analyze("function f(){ tabA.setUrl('formA'); }");
+        assertEquals("defect2-setUrl: status", "UNSUPPORTED_SYNTAX", String.valueOf(setUrlResult.getStatus()));
+        assertTrue("defect2-setUrl: reason names member-access category, not a screen id",
+                setUrlResult.getReason() != null
+                        && setUrlResult.getReason().contains("unsupported arbitrary member access on identifier"));
+
+        SourceScriptAnalysisResult addTabResult =
+                new SourceScriptAnalyzer().analyze("function f(){ myTabControl.addTab('pageId', 'label'); }");
+        assertEquals("defect2-addTab: status", "UNSUPPORTED_SYNTAX", String.valueOf(addTabResult.getStatus()));
+        assertTrue("defect2-addTab: reason names member-access category, not a screen id",
+                addTabResult.getReason() != null
+                        && addTabResult.getReason().contains("unsupported arbitrary member access on identifier"));
     }
 
     private static void testBracelessIf() {
