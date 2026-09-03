@@ -137,9 +137,9 @@ public class AtomicWebSquareRendererTest {
         testSearchAreaEditMapsToXfInput();
         testSearchAreaComboMapsToXfSelect1Minimal();
         testSearchAreaCalendarMapsToW2InputCalendar();
-        testSearchAreaCheckBoxMapsToXfSelectFull();
+        testSearchAreaCheckBoxFailsClosedBeforeRenderer();
         testSearchAreaRadioMapsToXfSelect1Full();
-        testSearchAreaAllFiveControlMappingsAcrossMultipleRows();
+        testSearchAreaAllFourNonCheckBoxControlMappingsAcrossMultipleRows();
         testSearchAreaRootIsXfGroup();
         testSearchAreaEachRowIsDirectXfGroupChild();
         testSearchAreaNoShbox();
@@ -2042,11 +2042,28 @@ public class AtomicWebSquareRendererTest {
         assertTrue("search-calendar: no appearance attribute", !control.hasAttribute("appearance"));
     }
 
-    private static void testSearchAreaCheckBoxMapsToXfSelectFull() throws Exception {
-        Element control = renderSingleControl("CheckBox");
-        assertEquals("search-checkbox: localName", "select", control.getLocalName());
-        assertEquals("search-checkbox: namespace", NS_XF_TEST, control.getNamespaceURI());
-        assertEquals("search-checkbox: appearance", "full", control.getAttribute("appearance"));
+    /**
+     * Slice 99E -- CheckBox는 accepted v6 rendering/runtime 동등성이 증명되지 않아 이제 renderer에
+     * 전혀 도달하지 못한다({@code TargetPayloadExtractor}가 먼저 fail-closed). primary 실패가
+     * renderer 이전임을 여기서 증명한다.
+     */
+    private static void testSearchAreaCheckBoxFailsClosedBeforeRenderer() throws Exception {
+        Document doc = newDocument();
+        Element form = buildSearchAreaFixture(doc, new String[][][] {{{"Field", "CheckBox"}}});
+        try {
+            runRealPipeline(form, "SEARCH_AREA");
+            failures++;
+            System.out.println("[FAIL] search-checkbox-fail-closed: expected IllegalStateException but none "
+                    + "was thrown");
+        } catch (IllegalStateException e) {
+            if (e.getMessage().contains("checkbox_unbound_rendering_equivalence_not_proven")) {
+                System.out.println("[PASS] search-checkbox-fail-closed: explicit failure before renderer -- "
+                        + e.getMessage());
+            } else {
+                failures++;
+                System.out.println("[FAIL] search-checkbox-fail-closed: wrong reason -- " + e.getMessage());
+            }
+        }
     }
 
     private static void testSearchAreaRadioMapsToXfSelect1Full() throws Exception {
@@ -2056,26 +2073,30 @@ public class AtomicWebSquareRendererTest {
         assertEquals("search-radio: appearance", "full", control.getAttribute("appearance"));
     }
 
-    private static void testSearchAreaAllFiveControlMappingsAcrossMultipleRows() throws Exception {
+    /**
+     * Slice 99E -- CheckBox는 accepted v6 rendering/runtime 동등성 미증명으로 fail-closed되므로
+     * 이 다중 row/control 매핑 검증에서는 제외한다(별도로 fail-closed 전용 테스트가 증명).
+     */
+    private static void testSearchAreaAllFourNonCheckBoxControlMappingsAcrossMultipleRows() throws Exception {
         Document doc = newDocument();
         Element form = buildSearchAreaFixture(doc, new String[][][] {
-                {{"F1", "Edit"}, {"F2", "Combo"}}, {{"F3", "Calendar"}, {"F4", "CheckBox"}}, {{"F5", "Radio"}}});
+                {{"F1", "Edit"}, {"F2", "Combo"}}, {{"F3", "Calendar"}}, {{"F5", "Radio"}}});
         RealPipelineResult built = runRealPipeline(form, "SEARCH_AREA");
         AtomicRenderResult result = new AtomicWebSquareRenderer().render(built.plan, built.payloads).get(0);
-        assertEquals("search-all-five: status", "RENDERED", String.valueOf(result.getStatus()));
+        assertEquals("search-all-four: status", "RENDERED", String.valueOf(result.getStatus()));
         List<Element> rows = directChildren(result.getTargetElement());
-        assertEquals("search-all-five: row count", "3", String.valueOf(rows.size()));
-        String[] expectedLocalNames = {"input", "select1", "inputCalendar", "select", "select1"};
+        assertEquals("search-all-four: row count", "3", String.valueOf(rows.size()));
+        String[] expectedLocalNames = {"input", "select1", "inputCalendar", "select1"};
         int i = 0;
         for (Element row : rows) {
             List<Element> pairChildren = directChildren(row);
             for (int c = 1; c < pairChildren.size(); c += 2) {
-                assertEquals("search-all-five: control " + i + " localName", expectedLocalNames[i],
+                assertEquals("search-all-four: control " + i + " localName", expectedLocalNames[i],
                         pairChildren.get(c).getLocalName());
                 i++;
             }
         }
-        assertEquals("search-all-five: exactly 5 controls visited", "5", String.valueOf(i));
+        assertEquals("search-all-four: exactly 4 controls visited", "4", String.valueOf(i));
     }
 
     private static void testSearchAreaRootIsXfGroup() throws Exception {

@@ -909,8 +909,9 @@ public final class AtomicWebSquareRenderer {
     }
 
     /**
-     * source tag -> target control 1:1 매핑(Edit/Combo/Calendar/CheckBox/Radio 다섯 값만).
-     * 다른 값은 lexical 유사성으로 재해석하지 않고 즉시 fail-closed한다(generic fallback 없음).
+     * source tag -> target control 1:1 매핑(Edit/Combo/Calendar/Radio 네 값만). CheckBox는 rendering
+     * 동등성 미증명(Slice 99E)으로 여기서도 defense-in-depth 거부한다(primary fail-closed는 이보다
+     * 앞서 {@code TargetPayloadExtractor}에서 발생). 다른 미지원 값도 재해석 없이 fail-closed한다.
      */
     private Element buildSearchAreaControlElement(Document doc, String sourceTagName) {
         if ("Edit".equals(sourceTagName)) {
@@ -921,14 +922,12 @@ public final class AtomicWebSquareRenderer {
             return select1;
         } else if ("Calendar".equals(sourceTagName)) {
             return doc.createElementNS(NS_W2, "w2:inputCalendar");
-        } else if ("CheckBox".equals(sourceTagName)) {
-            Element select = doc.createElementNS(NS_XF, "xf:select");
-            select.setAttribute("appearance", "full");
-            return select;
         } else if ("Radio".equals(sourceTagName)) {
             Element select1 = doc.createElementNS(NS_XF, "xf:select1");
             select1.setAttribute("appearance", "full");
             return select1;
+        } else if ("CheckBox".equals(sourceTagName)) {
+            throw new SearchAreaStructuralViolation("checkbox_unbound_rendering_equivalence_not_proven");
         }
         throw new SearchAreaStructuralViolation("unsupported_control_type:" + sourceTagName);
     }

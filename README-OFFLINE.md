@@ -102,8 +102,10 @@ REAL_RUNTIME_VERIFIED
 (WIDGET/BOOTSTRAP SEMANTICS)
 
 CheckBox unbound accepted-v6 rendering-equivalence:
-NOT_VERIFIED (Slice 99D correction 1 -- 위 역사적 검증은 legacy WebSquareGenerator 출력 기준이며, 현재
-accepted v6 CheckBox 출력(xf:select appearance="full")과의 렌더링/runtime 동등성은 별도로 증명되지 않음)
+CLOSED_CONTRACT_LIMITATION (Slice 99E -- 위 역사적 검증은 legacy WebSquareGenerator 출력 기준이며, 현재
+accepted v6 CheckBox 출력(xf:select appearance="full")과 렌더링/runtime 동등하다는 증거가 repository
+안에 없고 real WebSquare runtime 환경도 이 프로젝트에 없어 실행 검증도 불가능하므로, unbound CheckBox도
+dataset-bound와 동일하게 렌더러 도달 전에 명시적으로 fail-closed한다)
 
 Auto page init:
 CLOSED_CONTRACT_LIMITATION (Slice 99D -- accepted path never generates ev:onpageload, 0 consumers)
@@ -114,17 +116,14 @@ PASS
 ## 8. 남은 known gaps
 
 Defect 2(CONTENT_NOT_READY)는 Slice 99A에서, GRID-3(다중 Format)는 Slice 99B correction에서, CheckBox
-dataset-bound는 Slice 99C에서, `ev:onpageload` 자동 page-init은 Slice 99D에서 각각
-CLOSED_CONTRACT_LIMITATION으로 종결(`docs/OFFLINE-USER-GUIDE.md` 항목 13 참고 -- CheckBox는 unbound는
-파이프라인이 구조적으로 현재 형태(`xf:select appearance="full"`)를 그대로 발행하지만, id를 가리키는
-BindItem이 있으면(dataset-bound) propid/값 계약 미증명으로 렌더러 도달 전 fail-closed; `ev:onpageload`는
-accepted path가 애초에 생성하지 않아 의존하는 산출물이 0건). Slice 99D correction 1에서 새로 식별된
-accepted-v6 product/runtime verification concern은 CheckBox unbound의 accepted-v6 rendering-equivalence
-`NOT_VERIFIED` 1건이다(`docs/OFFLINE-USER-GUIDE.md` 항목 13-5 참고) -- 이는 dataset-bound 계약 한계나
-auto page-init 종결과는 별개의 관심사이며, auto page-init 종결 자체를 재검토하는 것은 아니다. 이 항목이
-전체 남은 product/runtime known gap의 총 개수를 의미하는 것은 아니다 -- `V5_RUNTIME_REGRESSION_REQUIRED`/
-`CLASS_MERGE_RUNTIME_REQUIRED`(`OFFLINE-IMPORT-MANIFEST.md` 참고)는 이 correction에서 새로 판단하지
-않았으며, 그 문서에 이미 기록된 기존 standing 그대로 남아 있다.
+dataset-bound는 Slice 99C에서, `ev:onpageload` 자동 page-init은 Slice 99D에서, CheckBox unbound의
+accepted-v6 rendering-equivalence는 Slice 99E에서 각각 CLOSED_CONTRACT_LIMITATION으로 종결
+(`docs/OFFLINE-USER-GUIDE.md` 항목 13 참고 -- CheckBox는 dataset-bound(BindItem 존재)든 unbound든 모두
+렌더러 도달 전에 명시적으로 fail-closed되어 대상 XML을 전혀 발행하지 않는다; `ev:onpageload`는 accepted
+path가 애초에 생성하지 않아 의존하는 산출물이 0건). 이 5건은 모두 종결됐으나, 이것이 전체 남은
+product/runtime known gap이 0건이라는 의미는 아니다 -- `V5_RUNTIME_REGRESSION_REQUIRED`/
+`CLASS_MERGE_RUNTIME_REQUIRED`(`OFFLINE-IMPORT-MANIFEST.md` 참고)는 이 Slice에서 새로 판단하지
+않았으며, 그 문서에 이미 기록된 기존 standing(미검증 상태) 그대로 남아 있다.
 
 별도 certification blocker 1건: Target JDK 1.8.0_111 확보/검증(BLOCKED_BY_DISTRIBUTION — 폐쇄망에서
 별도 확보 필요, `verify-offline.*`의 1단계 게이트로 확인).

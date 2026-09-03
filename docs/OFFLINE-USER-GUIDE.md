@@ -268,19 +268,18 @@ verifier는 legacy 변환 출력에 의존하는 절차이며, 현재 `verify-of
 - CheckBox(unbound) — 역사적 widget/bootstrap evidence: **REAL_RUNTIME_VERIFIED** — 과거 legacy
   `WebSquareGenerator` 출력 기준으로 `addItem(value,label)` 호출, 실제 `<input>`+`<label>` 생성,
   click→checked→`getValue()` round-trip을 실 엔진에서 확인(역사적 검증 기록, 항목 13-5 참고). **이
-  검증은 legacy 출력에 대한 것이며, 현재 accepted v6 path의 CheckBox 출력(`<xf:select
-  appearance="full"/>`)이 이 역사적 widget 경로와 렌더링/runtime 측면에서 동등한지는 별도로
-  검증되지 않았다**(`CHECKBOX_UNBOUND_ACCEPTED_V6_RENDERING_EQUIVALENCE = NOT_VERIFIED`, 항목 13-5
-  참고). accepted v6 CheckBox 출력이 `ev:onpageload`/script bootstrap을 전혀 생성하지 않는다는
-  사실(항목 13-4, Slice 99D CLOSED_CONTRACT_LIMITATION)은 이 rendering-equivalence 문제와는 별개이며
-  자동 page-init 신뢰성 문제 자체가 발행된 산출물에 적용되지 않는다는 판정은 그대로 유지된다.
+  검증은 legacy 출력에 대한 것이며 현재 accepted v6 출력의 검증 authority가 아니다.** accepted v6
+  path는 CheckBox rendering/runtime 동등성이 증명되지 않아(Slice 99E) unbound/dataset-bound 모두
+  렌더러 도달 전에 명시적으로 fail-closed되며(`checkbox_unbound_rendering_equivalence_not_proven`),
+  대상 XML을 전혀 발행하지 않는다(`CHECKBOX_UNBOUND_FINAL_DISPOSITION = CLOSED_CONTRACT_LIMITATION`,
+  항목 13-5 참고). accepted path가 `ev:onpageload`/script bootstrap을 생성하지 않는다는 사실(항목
+  13-4, Slice 99D)은 이 rendering-equivalence 문제와는 별개이며 그 판정은 그대로 유지된다.
 - Phase1 SHA: **STATIC_VERIFIED / PASS**
 
 ## 13. 현재 남은 제한
 
 **제품/Runtime known gap**(항목 1은 Slice 99A, 항목 2는 Slice 99B correction, 항목 3은 Slice 99C, 항목
-4는 Slice 99D에서 각각 `CLOSED_CONTRACT_LIMITATION`으로 종결; 항목 5는 Slice 99D correction 1에서 새로
-식별된 CheckBox accepted-v6 rendering-equivalence 문제로 `NOT_VERIFIED`인 채 아직 열려 있음):
+4는 Slice 99D, 항목 5는 Slice 99E에서 각각 `CLOSED_CONTRACT_LIMITATION`으로 종결):
 1. Defect 2 — `CONTENT_NOT_READY` false-negative: **CLOSED_CONTRACT_LIMITATION**(Slice 99A). Tab 동적
    navigation(`someTab.setUrl(...)`/`addTab(...)` 등)은 `identifier.member` 형태라 `SourceScriptAnalyzer`가
    항상 `UNSUPPORTED_SYNTAX`로 결정적으로 거부하며, `TargetWebSquarePipeline`은 이 시점에 전체 변환을
@@ -311,12 +310,10 @@ verifier는 legacy 변환 출력에 의존하는 절차이며, 현재 `verify-of
    `w2:checkbox` binding/runtime 계약 모두 증명되지 않았다. accepted binding resolution은
    evidence-bounded exact-reference subset뿐이다(`SourceBindingAnalyzer`가 compid를 문서 안
    id-attribute exact match로만 resolve, dotted-path 등 미증명 확장 없음). CheckBox를 가리키는
-   BindItem이 존재하지 않으면(unbound, corpus 유일 사례) 이 dataset-bound 계약-한계 거부 경로 자체가
-   발동되지 않으며, 파이프라인은 구조적으로 현재 accepted-v6 unbound 표현(`<xf:select
-   appearance="full"/>`)을 발행할 수 있다. **단, 이 문장은 그 출력이 historical `w2:checkbox`/
-   `addItem` evidence와 runtime rendering/interaction/value/checked/label semantics 측면에서
-   동등함을 증명하는 것이 아니다** -- 그 rendering-equivalence는 별도로 `NOT_VERIFIED`다(항목 13-5
-   참고). source의 어떤 BindItem이 정확히 하나의
+   BindItem이 존재하지 않으면(unbound, corpus 유일 사례) 이 dataset-bound 계약-한계 거부 경로 자체는
+   발동되지 않지만, 그렇다고 파이프라인이 그 CheckBox를 발행하는 것은 아니다 -- 이어서 항목 5(Slice
+   99E)의 별개 사유(`checkbox_unbound_rendering_equivalence_not_proven`)로 동일하게 fail-closed된다.
+   source의 어떤 BindItem이 정확히 하나의
    CheckBox Element로 exact resolve되면 `TargetPayloadExtractor`가 그 의미를 추측하지 않고 렌더러
    도달 전에 fail-closed된다(`checkbox_dataset_binding_no_proven_target_contract`). 같은 id를
    가진 Element가 2개 이상이라 ambiguous하게 resolve될 때 그 후보 중 하나가 이 CheckBox이면 --
@@ -341,21 +338,26 @@ verifier는 legacy 변환 출력에 의존하는 절차이며, 현재 `verify-of
    없음), BIND-1도 `WebSquareGenerator` 전용 수정이라 accepted path에 승계되지 않았다. "자동 발화가
    검증됐다"는 주장이 아니라, accepted path가 애초에 이 메커니즘을 만들지 않는다는 구조적 사실이
    종결 근거다(`TargetPayloadBehaviorFinalizerTest`의 `testOnloadEventNeverMapsToTargetOnpageload`,
-   `TargetWebSquarePipelineTest`의 `testIntegrationCheckBoxUnboundSucceedsWithoutPageInitLifecycle`/
+   `TargetWebSquarePipelineTest`의 `testIntegrationCheckBoxUnboundFailsClosedNoPartialOutput`/
    `testIntegrationAllSevenFamiliesReachFinalXml`로 생성 XML에 `onpageload` 부재를 검증).
-5. CheckBox(unbound) accepted-v6 rendering-equivalence: **NOT_VERIFIED**(Slice 99D correction 1에서
-   새로 식별, 아직 열려 있음). 역사적 widget/bootstrap evidence(`w2:checkbox`, `addItem(value,label)`,
-   실제 `<input>`+`<label>` 생성, click-checked-`getValue()` round-trip)는 legacy
-   `WebSquareGenerator` 출력에 대해서만 확인된 것이다
-   (`CHECKBOX_UNBOUND_HISTORICAL_RUNTIME_EVIDENCE = REAL_RUNTIME_VERIFIED_WIDGET_BOOTSTRAP_SEMANTICS`).
-   accepted v6 path는 동일 CheckBox를 `<xf:select appearance="full"/>`(XForms, 자식/ref/items 없음)로
-   렌더하며, 이 역사적 경로와 구조적으로 다르다. 두 표현이 실제 렌더링/interaction 측면에서 동등한지는
-   증명되지 않았다(`CHECKBOX_UNBOUND_ACCEPTED_V6_RENDERING_EQUIVALENCE = NOT_VERIFIED`). 역사적 검증
-   기록이 현재 accepted v6 출력의 검증 authority가 되는 것은 아니다
+5. CheckBox(unbound) accepted-v6 rendering-equivalence: **CLOSED_CONTRACT_LIMITATION**(Slice 99E).
+   역사적 widget/bootstrap evidence(`w2:checkbox`, `addItem(value,label)`, 실제 `<input>`+`<label>`
+   생성, click-checked-`getValue()` round-trip)는 legacy `WebSquareGenerator` 출력에 대해서만
+   확인된 것이다(`CHECKBOX_UNBOUND_HISTORICAL_RUNTIME_EVIDENCE =
+   REAL_RUNTIME_VERIFIED_WIDGET_BOOTSTRAP_SEMANTICS`). WebSquare dev pack 문서(`ROOT/cm/template/
+   snippets/10_입력폼/10_06 Checkbox.xml` 등)의 공식 권장 패턴은 `xf:select renderType="checkboxgroup"`
+   + `xf:choices`/`xf:item`(다중 항목 그룹 위젯)이며, XPlatform CheckBox(단일 boolean)와 의미가 달라
+   그대로 재사용할 수 없다 -- accepted v6가 실제로 발행하는 빈 `<xf:select appearance="full"/>`(자식/
+   ref/item 없음)에 대한 target 문서/실 runtime 근거는 repository 안에 전혀 없다. real WebSquare
+   runtime 환경이 이 프로젝트에 포함되어 있지 않아(항목 14 참고) 실제 실행 검증도 수행할 수 없다.
+   따라서 evidence 없이 "구조적으로 well-formed하니 동작할 것"이라고 추측하지 않고, unbound CheckBox도
+   dataset-bound와 동일하게 렌더러 도달 전에 명시적으로 fail-closed한다
+   (`checkbox_unbound_rendering_equivalence_not_proven`, `TargetPayloadExtractorTest`/
+   `AtomicWebSquareRendererTest`/`TargetWebSquarePipelineTest`로 검증). 역사적 검증 기록이 현재
+   accepted v6 출력의 검증 authority가 되는 것은 아니다
    (`HISTORICAL_CHECKBOX_RUNTIME_EVIDENCE_IS_ACCEPTED_V6_RENDERING_EQUIVALENCE_AUTHORITY = FALSE`).
-   이는 CheckBox dataset-bound 계약 한계(항목 3, binding 증명 부재로 fail-closed되는 별개 경로)나
-   `ev:onpageload` 자동 page-init 종결(항목 4, producer/consumer 부재로 `CLOSED_CONTRACT_LIMITATION`)
-   과는 별개의 관심사이며, 이 항목이 항목 4의 auto-page-init 종결을 다시 여는 것은 아니다.
+   이는 CheckBox dataset-bound 계약 한계(항목 3)나 `ev:onpageload` 자동 page-init 종결(항목 4)과는
+   별개의 fail-closed 사유이며, 이 항목이 항목 4의 auto-page-init 종결을 다시 여는 것은 아니다.
 
 **별도 certification blocker 1건**:
 - exact JDK 1.8.0_111 확보/검증 상태: **BLOCKED_BY_DISTRIBUTION**. 이 프로젝트를 패키징한 온라인 PC에서

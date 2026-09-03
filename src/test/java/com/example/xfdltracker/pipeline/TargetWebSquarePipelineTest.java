@@ -54,7 +54,7 @@ public class TargetWebSquarePipelineTest {
         testIntegrationAmbiguousMultiFormatGridFailsClosedNoPartialOutput();
         testIntegrationCheckBoxDatasetBoundFailsClosedNoPartialOutput();
         testIntegrationCheckBoxAmbiguousBindingFailsClosedNoPartialOutput();
-        testIntegrationCheckBoxUnboundSucceedsWithoutPageInitLifecycle();
+        testIntegrationCheckBoxUnboundFailsClosedNoPartialOutput();
         testIntegrationAllSevenFamiliesReachFinalXml();
 
         // convert()는 ComponentPredicateAnalyzer/ComponentLayoutConverter를 직접 참조하지 않고
@@ -741,10 +741,11 @@ public class TargetWebSquarePipelineTest {
     }
 
     /**
-     * Slice 99D -- unbound CheckBox는 어떤 automatic page-init/lifecycle bootstrap도 요구하지
-     * 않고 정상 발행된다(accepted path는 애초에 ev:onpageload를 생성할 수 없음을 산출물로 재확인).
+     * Slice 99E -- unbound CheckBox도 accepted v6 rendering/runtime 동등성이 증명되지 않아
+     * 파이프라인 전체가 명시적으로 fail-closed되고 대상 XML이 전혀 발행되지 않는다(Slice 99D의
+     * auto-page-init 종결과는 별개 사유 -- 여기서 auto-page-init을 다시 여는 것이 아니다).
      */
-    private static void testIntegrationCheckBoxUnboundSucceedsWithoutPageInitLifecycle() throws Exception {
+    private static void testIntegrationCheckBoxUnboundFailsClosedNoPartialOutput() throws Exception {
         File dir = Files.createTempDirectory("target-web-square-pipeline-checkbox-unbound-fixture").toFile();
         File xfdl = new File(dir, "CheckBoxUnbound.xfdl");
         String content = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
@@ -758,10 +759,18 @@ public class TargetWebSquarePipelineTest {
                 + "</FDL>\n";
         Files.write(xfdl.toPath(), content.getBytes(java.nio.charset.StandardCharsets.UTF_8));
         File output = tempOutput();
-        new TargetWebSquarePipeline().convert(xfdl, output, new TargetPipelineConfig(TargetRuntimeProfile.empty()));
-        assertTrue("checkbox-unbound: pipeline succeeds without any page-init dependency", output.isFile());
-        String xml = new String(Files.readAllBytes(output.toPath()), java.nio.charset.StandardCharsets.UTF_8);
-        assertTrue("checkbox-unbound: generated XML never contains onpageload", !xml.contains("onpageload"));
+        boolean threw = false;
+        String reason = null;
+        try {
+            new TargetWebSquarePipeline().convert(xfdl, output, new TargetPipelineConfig(TargetRuntimeProfile.empty()));
+        } catch (IllegalStateException e) {
+            threw = true;
+            reason = e.getMessage();
+        }
+        assertTrue("checkbox-unbound: pipeline fails closed before final publication", threw);
+        assertTrue("checkbox-unbound: exception reason names the explicit evidence",
+                reason != null && reason.contains("checkbox_unbound_rendering_equivalence_not_proven"));
+        assertTrue("checkbox-unbound: no partial/invalid target XML is ever published", !output.exists());
     }
 
     private static void testIntegrationAllSevenFamiliesReachFinalXml() throws Exception {

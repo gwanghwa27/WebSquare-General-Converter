@@ -264,7 +264,7 @@ public final class TargetPayloadExtractor {
                                 + " is not a descendant of region anchor " + region.getSourceStructuralId());
             }
             validateSourceElementRoleContract(family, item.getEvidenceRole(), leaf);
-            rejectDatasetBoundCheckBox(leaf, item.getSourceComponentStructuralId(), bindingReferences);
+            rejectUnprovenCheckBoxContract(leaf, item.getSourceComponentStructuralId(), bindingReferences);
         }
         validateBusinessTableStructuralIntegrity(family, evidence);
 
@@ -467,11 +467,11 @@ public final class TargetPayloadExtractor {
     }
 
     /**
-     * upstream(예: {@code TargetWebSquarePipeline} -&gt; {@code SourceBindingAnalyzer})이 이미 계산해
-     * 넘긴 evidence만 소비한다(raw source 재스캔 없음). exact-resolved든 ambiguous 후보 포함이든
-     * 이 CheckBox를 가리키면 값 계약이 증명되지 않았으므로 각기 다른 명시적 사유로 fail-closed한다.
+     * upstream이 이미 계산해 넘긴 binding evidence만 소비한다(raw source 재스캔 없음). binding 계약
+     * 판정을 먼저 하고(exact-resolved/ambiguous 각각 별도 사유), 문제가 없어 unbound로 판명되면
+     * Slice 99E 사유로 이어서 fail-closed한다(accepted v6 출력의 rendering 동등성 미증명).
      */
-    private void rejectDatasetBoundCheckBox(
+    private void rejectUnprovenCheckBoxContract(
             Element leaf, String leafStructuralId, List<SourceBindingReference> bindingReferences) {
         if (!"CheckBox".equals(sourceTagName(leaf))) {
             return;
@@ -494,6 +494,10 @@ public final class TargetPayloadExtractor {
                                 + reference.getCompid() + ")");
             }
         }
+        throw new IllegalStateException(
+                "target_payload_extractor: accepted v6 CheckBox rendering/runtime equivalence against "
+                        + "historical widget/bootstrap evidence is not proven -- refusing to publish an "
+                        + "unverified representation (checkbox_unbound_rendering_equivalence_not_proven)");
     }
 
     /**

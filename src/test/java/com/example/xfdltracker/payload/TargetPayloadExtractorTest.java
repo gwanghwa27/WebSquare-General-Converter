@@ -136,14 +136,17 @@ public class TargetPayloadExtractorTest {
 
         testCheckBoxDatasetBoundBusinessTableFailsClosedBeforeRenderer();
         testCheckBoxDatasetBoundSearchAreaStructurallyDifferentFixtureFailsClosed();
-        testCheckBoxUnboundNoBindDatasetStillSucceeds();
-        testCheckBoxBindingFalsePositiveEditTargetDoesNotRejectCheckBox();
-        testCheckBoxBindingFalsePositiveOtherCheckBoxTargetDoesNotRejectThisOne();
-        testCheckBoxUnrelatedAmbiguousBindingDoesNotContaminate();
+        testCheckBoxUnboundNoBindDatasetFailsClosedForUnboundReason();
+        testCheckBoxBindingFalsePositiveEditTargetStillFailsForUnboundReasonOnly();
+        testCheckBoxBindingFalsePositiveOtherCheckBoxTargetStillFailsForUnboundReasonOnly();
+        testCheckBoxUnrelatedAmbiguousBindingStillFailsForUnboundReasonOnly();
         testCheckBoxRelevantAmbiguousBindingFailsClosed();
         testCheckBoxAmbiguousCandidateSetIncludingEditAlsoFailsForCheckBox();
-        testCheckBoxUnrelatedAmbiguousEditCandidatesDoNotRejectCheckBox();
+        testCheckBoxUnrelatedAmbiguousEditCandidatesStillFailForUnboundReasonOnly();
         testCheckBoxDatasetBoundNameHeuristicIrrelevant();
+        testCheckBoxUnboundRealCorpusFixtureFailsClosed();
+        testCheckBoxUnboundStructuralVariationFailsClosed();
+        testCheckBoxUnboundNameDoesNotAffectFailClosedResult();
 
         if (failures == 0) {
             System.out.println("ALL TESTS PASSED");
@@ -586,25 +589,33 @@ public class TargetPayloadExtractorTest {
         });
     }
 
-    /** 회귀 -- 이 id를 가리키는 BindItem이 전혀 없는 unbound CheckBox는 기존과 동일하게 정상 추출된다. */
-    private static void testCheckBoxUnboundNoBindDatasetStillSucceeds() throws Exception {
+    /**
+     * Slice 99E -- 이 id를 가리키는 BindItem이 전혀 없는(=unbound) CheckBox도 더 이상 성공하지
+     * 않는다. accepted v6 rendering/runtime 동등성이 증명되지 않았으므로 렌더러 도달 전에 명시적으로
+     * fail-closed된다(checkbox_unbound_rendering_equivalence_not_proven).
+     */
+    private static void testCheckBoxUnboundNoBindDatasetFailsClosedForUnboundReason() throws Exception {
         Document doc = newDocument();
-        Element form = doc.createElement("Form");
+        final Element form = doc.createElement("Form");
         doc.appendChild(form);
         form.appendChild(businessTableWithCheckBoxControl(doc, "table2", "lbl2", "chk2"));
 
-        Fixture fx = buildFixture(form);
-        List<TargetNodePayload> payloads = extractWithBindings(form, fx.plan, fx.regions);
-        assertTrue("checkbox-unbound: extraction succeeds without any BindItem targeting it", !payloads.isEmpty());
+        final Fixture fx = buildFixture(form);
+        assertThrowsIllegalStateWithReason("checkbox_unbound_no_bind", "checkbox_unbound_rendering_equivalence_not_proven",
+                new Runnable() {
+                    public void run() {
+                        extractWithBindings(form, fx.plan, fx.regions);
+                    }
+                });
     }
 
     /**
      * CHECKBOX_BINDING_FALSE_POSITIVE_ISOLATION_TEST(1/2) -- 다른 컴포넌트(Edit)를 가리키는
      * BindItem이 있어도, 그와 무관한 CheckBox는 정상 추출된다(잘못된 correlation 반례).
      */
-    private static void testCheckBoxBindingFalsePositiveEditTargetDoesNotRejectCheckBox() throws Exception {
+    private static void testCheckBoxBindingFalsePositiveEditTargetStillFailsForUnboundReasonOnly() throws Exception {
         Document doc = newDocument();
-        Element form = doc.createElement("Form");
+        final Element form = doc.createElement("Form");
         doc.appendChild(form);
         form.appendChild(businessTableWithCheckBoxControl(doc, "table3", "lbl3", "chkSafe"));
         Element edit = doc.createElement("Edit");
@@ -612,25 +623,34 @@ public class TargetPayloadExtractorTest {
         form.appendChild(edit);
         form.appendChild(bindItemFor(doc, "bEdit", "edtElsewhere", "value", "dsX", "COL_X"));
 
-        Fixture fx = buildFixture(form);
-        List<TargetNodePayload> payloads = extractWithBindings(form, fx.plan, fx.regions);
-        assertTrue("false-positive-edit-target: unrelated CheckBox still extracted", !payloads.isEmpty());
+        final Fixture fx = buildFixture(form);
+        assertThrowsIllegalStateWithReason("false-positive-edit-target", "checkbox_unbound_rendering_equivalence_not_proven",
+                new Runnable() {
+                    public void run() {
+                        extractWithBindings(form, fx.plan, fx.regions);
+                    }
+                });
     }
 
     /**
      * CHECKBOX_BINDING_FALSE_POSITIVE_ISOLATION_TEST(2/2) -- 다른 CheckBox(compid가 문서에 실존
      * 하지 않음, unresolved)를 가리키는 BindItem이 있어도 이 CheckBox는 정상 추출된다.
      */
-    private static void testCheckBoxBindingFalsePositiveOtherCheckBoxTargetDoesNotRejectThisOne() throws Exception {
+    private static void testCheckBoxBindingFalsePositiveOtherCheckBoxTargetStillFailsForUnboundReasonOnly()
+            throws Exception {
         Document doc = newDocument();
-        Element form = doc.createElement("Form");
+        final Element form = doc.createElement("Form");
         doc.appendChild(form);
         form.appendChild(businessTableWithCheckBoxControl(doc, "table4", "lbl4", "chkSafe2"));
         form.appendChild(bindItemFor(doc, "bOther", "chkSomewhereElseNotPresent", "checked", "dsY", "COL_Y"));
 
-        Fixture fx = buildFixture(form);
-        List<TargetNodePayload> payloads = extractWithBindings(form, fx.plan, fx.regions);
-        assertTrue("false-positive-other-checkbox-target: unrelated CheckBox still extracted", !payloads.isEmpty());
+        final Fixture fx = buildFixture(form);
+        assertThrowsIllegalStateWithReason("false-positive-other-checkbox-target",
+                "checkbox_unbound_rendering_equivalence_not_proven", new Runnable() {
+                    public void run() {
+                        extractWithBindings(form, fx.plan, fx.regions);
+                    }
+                });
     }
 
     /**
@@ -664,13 +684,97 @@ public class TargetPayloadExtractorTest {
     }
 
     /**
+     * Slice 99E -- CHECKBOX_UNBOUND_CORPUS_FAIL_CLOSED_TEST. 실 corpus(sample-phase3-project/
+     * Form/ControlPropertyMatrix.xfdl)의 유일한 CheckBox 사용례(id="chk" text="Use", BindItem
+     * 없음)를 그대로 재현한 fixture가 명시적 사유로 fail-closed됨을 증명한다.
+     */
+    private static void testCheckBoxUnboundRealCorpusFixtureFailsClosed() throws Exception {
+        Document doc = newDocument();
+        final Element form = doc.createElement("Form");
+        doc.appendChild(form);
+        // 실 corpus(ControlPropertyMatrix.xfdl)의 CheckBox 선언값(id/text/width/height)을 그대로
+        // 쓴다. corpus 자체는 이 CheckBox를 Static과 geometry로 짝짓지 않아(top 불일치) 애초에
+        // SEARCH_AREA로 인식되지 않으므로, 여기서는 label과 top을 맞춰 payload 추출 단계까지 도달시킨다.
+        Element container = doc.createElement("Div");
+        container.setAttribute("id", "corpusContainer");
+        Element label = doc.createElement("Static");
+        label.setAttribute("id", "lblUse");
+        label.setAttribute("text", "Label");
+        label.setAttribute("left", "380");
+        label.setAttribute("top", "120");
+        label.setAttribute("width", "50");
+        label.setAttribute("height", "24");
+        Element checkBox = doc.createElement("CheckBox");
+        checkBox.setAttribute("id", "chk");
+        checkBox.setAttribute("text", "Use");
+        checkBox.setAttribute("left", "440");
+        checkBox.setAttribute("top", "120");
+        checkBox.setAttribute("width", "100");
+        checkBox.setAttribute("height", "24");
+        container.appendChild(label);
+        container.appendChild(checkBox);
+        form.appendChild(container);
+
+        final Fixture fx = buildFixture(form);
+        assertThrowsIllegalStateWithReason("checkbox_unbound_real_corpus_fixture",
+                "checkbox_unbound_rendering_equivalence_not_proven", new Runnable() {
+                    public void run() {
+                        extractWithBindings(form, fx.plan, fx.regions);
+                    }
+                });
+    }
+
+    /**
+     * Slice 99E -- CHECKBOX_UNBOUND_STRUCTURAL_VARIATION_TEST. 구조적으로 다른 두번째 fixture
+     * (SEARCH_AREA 경로, Grid peer 존재)도 동일한 명시적 fail-closed 계약으로 귀결됨을 증명한다 --
+     * 이 fixture는 genericity 증명 목적이며 source-semantic authority로 쓰지 않는다.
+     */
+    private static void testCheckBoxUnboundStructuralVariationFailsClosed() throws Exception {
+        Document doc = newDocument();
+        final Element form = doc.createElement("Form");
+        doc.appendChild(form);
+        form.appendChild(businessTableWithCheckBoxControl(doc, "search2", "lblOther", "chkOtherShape"));
+        Element grid = doc.createElement("Grid");
+        grid.setAttribute("id", "gridPeer");
+        form.appendChild(grid);
+
+        final Fixture fx = buildFixture(form);
+        assertThrowsIllegalStateWithReason("checkbox_unbound_structural_variation",
+                "checkbox_unbound_rendering_equivalence_not_proven", new Runnable() {
+                    public void run() {
+                        extractWithBindings(form, fx.plan, fx.regions);
+                    }
+                });
+    }
+
+    /**
+     * Slice 99E -- CHECKBOX_UNBOUND_NAME_HEURISTIC_TEST. component id/name 문자열이 무엇이든
+     * (실 corpus의 "chk"부터 의미 있어 보이는 이름까지) unbound CheckBox의 결과는 동일하게
+     * fail-closed다 -- 이름에서 의미를 추론하지 않는다.
+     */
+    private static void testCheckBoxUnboundNameDoesNotAffectFailClosedResult() throws Exception {
+        Document doc = newDocument();
+        final Element form = doc.createElement("Form");
+        doc.appendChild(form);
+        form.appendChild(businessTableWithCheckBoxControl(doc, "table9", "lbl9", "zzzMeaningfulLookingName"));
+
+        final Fixture fx = buildFixture(form);
+        assertThrowsIllegalStateWithReason("checkbox_unbound_name_heuristic_irrelevant",
+                "checkbox_unbound_rendering_equivalence_not_proven", new Runnable() {
+                    public void run() {
+                        extractWithBindings(form, fx.plan, fx.regions);
+                    }
+                });
+    }
+
+    /**
      * UNRELATED_AMBIGUOUS_BINDING_ISOLATION_TEST -- compid가 문서 안에서 2개 Element(둘 다 이
      * CheckBox는 아님)에 동시에 매치되면 ambiguous로 남지만, 이 CheckBox는 후보 목록에 없으므로
      * 영향받지 않고 정상 추출된다.
      */
-    private static void testCheckBoxUnrelatedAmbiguousBindingDoesNotContaminate() throws Exception {
+    private static void testCheckBoxUnrelatedAmbiguousBindingStillFailsForUnboundReasonOnly() throws Exception {
         Document doc = newDocument();
-        Element form = doc.createElement("Form");
+        final Element form = doc.createElement("Form");
         doc.appendChild(form);
         form.appendChild(businessTableWithCheckBoxControl(doc, "table5", "lbl5", "chkSafe3"));
         Element dupA = doc.createElement("Div");
@@ -681,10 +785,13 @@ public class TargetPayloadExtractorTest {
         form.appendChild(dupB);
         form.appendChild(bindItemFor(doc, "bAmbig", "dupTarget", "checked", "dsZ", "COL_Z"));
 
-        Fixture fx = buildFixture(form);
-        List<TargetNodePayload> payloads = extractWithBindings(form, fx.plan, fx.regions);
-        assertTrue("unrelated-ambiguous: unrelated CheckBox still extracted (not a candidate)",
-                !payloads.isEmpty());
+        final Fixture fx = buildFixture(form);
+        assertThrowsIllegalStateWithReason("unrelated-ambiguous", "checkbox_unbound_rendering_equivalence_not_proven",
+                new Runnable() {
+                    public void run() {
+                        extractWithBindings(form, fx.plan, fx.regions);
+                    }
+                });
     }
 
     /**
@@ -736,9 +843,9 @@ public class TargetPayloadExtractorTest {
      * UNRELATED_AMBIGUOUS_BINDING_ISOLATION_TEST(Edit 후보만) -- compid 후보가 서로 다른 두
      * Edit(같은 id)뿐이고 CheckBox는 후보에 없으면, 무관한 CheckBox는 정상 추출된다.
      */
-    private static void testCheckBoxUnrelatedAmbiguousEditCandidatesDoNotRejectCheckBox() throws Exception {
+    private static void testCheckBoxUnrelatedAmbiguousEditCandidatesStillFailForUnboundReasonOnly() throws Exception {
         Document doc = newDocument();
-        Element form = doc.createElement("Form");
+        final Element form = doc.createElement("Form");
         doc.appendChild(form);
         form.appendChild(businessTableWithCheckBoxControl(doc, "table8", "lbl8", "chkSafe4"));
         Element edit1 = doc.createElement("Edit");
@@ -749,10 +856,13 @@ public class TargetPayloadExtractorTest {
         form.appendChild(edit2);
         form.appendChild(bindItemFor(doc, "bAmbigEdit", "dupEdit", "value", "dsEdit", "COL_EDIT"));
 
-        Fixture fx = buildFixture(form);
-        List<TargetNodePayload> payloads = extractWithBindings(form, fx.plan, fx.regions);
-        assertTrue("unrelated-ambiguous-edit-candidates: unrelated CheckBox still extracted",
-                !payloads.isEmpty());
+        final Fixture fx = buildFixture(form);
+        assertThrowsIllegalStateWithReason("unrelated-ambiguous-edit-candidates",
+                "checkbox_unbound_rendering_equivalence_not_proven", new Runnable() {
+                    public void run() {
+                        extractWithBindings(form, fx.plan, fx.regions);
+                    }
+                });
     }
 
     /** label(Static) + CheckBox(control) 1쌍짜리 BUSINESS_TABLE-eligible container. BindItem은
@@ -3793,6 +3903,23 @@ public class TargetPayloadExtractorTest {
             }
         }
         return null;
+    }
+
+    /** Slice 99E -- reason 문자열까지 확인해 "실패는 했지만 엉뚱한 사유"를 놓치지 않는다. */
+    private static void assertThrowsIllegalStateWithReason(String label, String expectedReasonSubstring,
+            Runnable action) {
+        try {
+            action.run();
+            failures++;
+            System.out.println("[FAIL] " + label + ": expected IllegalStateException but none was thrown");
+        } catch (IllegalStateException e) {
+            if (e.getMessage() != null && e.getMessage().contains(expectedReasonSubstring)) {
+                System.out.println("[PASS] " + label + ": explicit failure -- " + e.getMessage());
+            } else {
+                failures++;
+                System.out.println("[FAIL] " + label + ": failed for the wrong reason -- " + e.getMessage());
+            }
+        }
     }
 
     private static void assertThrowsIllegalState(String label, Runnable action) {
