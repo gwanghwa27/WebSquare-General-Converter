@@ -51,6 +51,7 @@ public class TargetWebSquarePipelineTest {
         testIntegrationSupportedRuntimeRequirementsContinuePastRuntimeLane();
         testIntegrationTabControlSurvivesFullPipeline();
         testIntegrationSearchAreaSurvivesFullPipeline();
+        testIntegrationAmbiguousMultiFormatGridFailsClosedNoPartialOutput();
         testIntegrationAllSevenFamiliesReachFinalXml();
 
         // convert()는 ComponentPredicateAnalyzer/ComponentLayoutConverter를 직접 참조하지 않고
@@ -623,6 +624,40 @@ public class TargetWebSquarePipelineTest {
         File output = tempOutput();
         new TargetWebSquarePipeline().convert(xfdl, output, new TargetPipelineConfig(TargetRuntimeProfile.empty()));
         assertTrue("integration: SEARCH_AREA fixture survives the full pipeline", output.isFile());
+    }
+
+    /**
+     * MULTI_FORMAT_AMBIGUITY_FAILS_BEFORE_RENDERER_TEST(pipeline-level) -- Grid에 2개 Format이
+     * 있고 이를 결정적으로 고를 증명된 source selector가 없으면(Slice 99B correction) 어떤
+     * Format도 암묵 선택하지 않고 파이프라인 전체가 fail-closed되어 대상 XML이 전혀 발행되지 않는다.
+     */
+    private static void testIntegrationAmbiguousMultiFormatGridFailsClosedNoPartialOutput() throws Exception {
+        File dir = Files.createTempDirectory("target-web-square-pipeline-grid3-ambiguous-fixture").toFile();
+        File xfdl = new File(dir, "AmbiguousMultiFormat.xfdl");
+        String content = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
+                + "<FDL version=\"1.5\">\n"
+                + "  <Form id=\"AmbiguousMultiFormatForm\" width=\"400\" height=\"300\">\n"
+                + "    <Grid id=\"grd1\" left=\"0\" top=\"0\" width=\"200\" height=\"120\">\n"
+                + "      <Formats>\n"
+                + "        <Format id=\"default\"><Columns><Column size=\"100\" /></Columns>\n"
+                + "          <Band id=\"head\"><Cell col=\"0\" row=\"0\" /></Band>\n"
+                + "          <Band id=\"body\"><Cell col=\"0\" row=\"0\" /></Band></Format>\n"
+                + "        <Format id=\"alternate\"><Columns><Column size=\"200\" /></Columns>\n"
+                + "          <Band id=\"body\"><Cell col=\"0\" row=\"0\" /></Band></Format>\n"
+                + "      </Formats>\n"
+                + "    </Grid>\n"
+                + "  </Form>\n"
+                + "</FDL>\n";
+        Files.write(xfdl.toPath(), content.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        File output = tempOutput();
+        boolean threw = false;
+        try {
+            new TargetWebSquarePipeline().convert(xfdl, output, new TargetPipelineConfig(TargetRuntimeProfile.empty()));
+        } catch (IllegalStateException e) {
+            threw = true;
+        }
+        assertTrue("grid3-ambiguous: pipeline fails closed before final publication", threw);
+        assertTrue("grid3-ambiguous: no partial/invalid target XML is ever published", !output.exists());
     }
 
     private static void testIntegrationAllSevenFamiliesReachFinalXml() throws Exception {

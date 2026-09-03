@@ -582,10 +582,22 @@ public final class TargetPayloadExtractor {
      */
     private List<TargetLeafPayload> extractGrid(Element gridElement) {
         List<TargetLeafPayload> items = new ArrayList<TargetLeafPayload>();
-        GridFormatParser.GridFormat format = gridFormatParser.parse(gridElement);
-        if (format == null) {
+        GridFormatParser.GridFormatSelection selection = gridFormatParser.resolveFormat(gridElement);
+        // Slice 99B correction -- source 문법에 다중 Format 중 활성 Format을 고르는 selector로
+        // 증명된 evidence가 없다. 이 상태를 렌더러의 missing-parameter 실패에 떠넘기지 않고, 여기서
+        // 명시적/결정적으로 fail-closed한다(렌더러는 이 지점에 도달하지 않는다).
+        if (selection.requiresExplicitAmbiguityFailure()) {
+            throw new IllegalStateException(
+                    "target_payload_extractor: GRID has multiple Format definitions with no proven "
+                            + "source selector authority -- refusing to guess an active Format ("
+                            + selection.getEvidence() + ")");
+        }
+        // Format이 아예 없는 경우(NO_FORMAT_DEFINITION)는 기존부터 non-fatal한 정상 케이스이므로
+        // leaf를 만들지 않고 그대로 빈 목록을 반환한다.
+        if (!selection.isResolved()) {
             return items;
         }
+        GridFormatParser.GridFormat format = selection.getFormat();
         addGridCells(items, "head", format.getHeadCells());
         addGridCells(items, "body", format.getBodyCells());
         addGridCells(items, "summ", format.getSummCells());

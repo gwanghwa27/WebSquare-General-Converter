@@ -52,6 +52,120 @@ public class GridFormatParser {
         return formats.get(0);
     }
 
+    /**
+     * source 문법에 다중 Format(2개 이상) 중 활성 Format을 고르는 selector로 증명된 근거가 없다.
+     * Format이 1개면 그대로 resolve하고, 2개 이상이면 id 중복이 아닌 한 unresolved(ambiguous)로
+     * 남긴다 -- id 문자열 의미나 선언 순서는 절대 근거로 쓰지 않는다.
+     */
+    public GridFormatSelection resolveFormat(Element grid) {
+        if (grid == null) {
+            return GridFormatSelection.noFormatDefinition("no_grid_element");
+        }
+        Element formats = firstDirectChild(grid, "Formats");
+        if (formats == null) {
+            return GridFormatSelection.noFormatDefinition("no_formats_element");
+        }
+        List<Element> formatElements = directChildren(formats, "Format");
+        if (formatElements.isEmpty()) {
+            return GridFormatSelection.noFormatDefinition("no_format_definition");
+        }
+        if (formatElements.size() == 1) {
+            GridFormat only = parseOneFormat(formatElements.get(0));
+            return GridFormatSelection.resolved(only, "single_format:id=" + safeId(only.getId()));
+        }
+
+        java.util.Set<String> seenIds = new java.util.HashSet<String>();
+        for (Element f : formatElements) {
+            String id = trim(f.getAttribute("id"));
+            if (id.length() == 0) {
+                continue;
+            }
+            if (!seenIds.add(id)) {
+                return GridFormatSelection.duplicateFormatIdentity("duplicate_format_identity:id=" + id);
+            }
+        }
+
+        return GridFormatSelection.ambiguous(
+                "ambiguous_multi_format_no_proven_selector:count=" + formatElements.size());
+    }
+
+    private GridFormat parseOneFormat(Element format) {
+        GridFormat result = new GridFormat(trim(format.getAttribute("id")));
+        parseColumns(format, result);
+        parseRows(format, result);
+        parseBands(format, result);
+        return result;
+    }
+
+    private String safeId(String id) {
+        return id.length() == 0 ? "(no id)" : id;
+    }
+
+    /**
+     * {@link #resolveFormat}의 closed 결과. {@code PARSED_FORMAT_DEFINITIONS}(Format이 몇 개
+     * 파싱됐는지)와 {@code RESOLVED_ACTIVE_FORMAT}(실제 사용할 Format 하나가 결정됐는지)을 state로
+     * 명시적으로 구분한다 -- 둘을 evidence 문자열만으로 암묵 구분하지 않는다.
+     */
+    public static final class GridFormatSelection {
+
+        /** NO_FORMAT_DEFINITION은 기존부터 non-fatal(정상 케이스)이며, 나머지 unresolved 2종은
+         * 호출자가 명시적으로 fail-closed해야 한다({@link #requiresExplicitAmbiguityFailure()}). */
+        public enum State {
+            SINGLE_FORMAT_RESOLVED,
+            NO_FORMAT_DEFINITION,
+            MULTI_FORMAT_SELECTION_UNRESOLVED,
+            DUPLICATE_FORMAT_IDENTITY
+        }
+
+        private final GridFormat format;
+        private final String evidence;
+        private final State state;
+
+        private GridFormatSelection(GridFormat format, String evidence, State state) {
+            this.format = format;
+            this.evidence = evidence;
+            this.state = state;
+        }
+
+        static GridFormatSelection resolved(GridFormat format, String evidence) {
+            return new GridFormatSelection(format, evidence, State.SINGLE_FORMAT_RESOLVED);
+        }
+
+        static GridFormatSelection noFormatDefinition(String evidence) {
+            return new GridFormatSelection(null, evidence, State.NO_FORMAT_DEFINITION);
+        }
+
+        static GridFormatSelection ambiguous(String evidence) {
+            return new GridFormatSelection(null, evidence, State.MULTI_FORMAT_SELECTION_UNRESOLVED);
+        }
+
+        static GridFormatSelection duplicateFormatIdentity(String evidence) {
+            return new GridFormatSelection(null, evidence, State.DUPLICATE_FORMAT_IDENTITY);
+        }
+
+        public boolean isResolved() {
+            return state == State.SINGLE_FORMAT_RESOLVED;
+        }
+
+        /** 렌더러 도달 전 upstream에서 명시적으로 fail-closed해야 하는 상태인지 (모호한 다중
+         * Format, 또는 Format id 중복). {@code NO_FORMAT_DEFINITION}은 여기 포함되지 않는다. */
+        public boolean requiresExplicitAmbiguityFailure() {
+            return state == State.MULTI_FORMAT_SELECTION_UNRESOLVED || state == State.DUPLICATE_FORMAT_IDENTITY;
+        }
+
+        public State getState() {
+            return state;
+        }
+
+        public GridFormat getFormat() {
+            return format;
+        }
+
+        public String getEvidence() {
+            return evidence;
+        }
+    }
+
     private void parseColumns(Element format, GridFormat result) {
         Element columns = firstDirectChild(format, "Columns");
         if (columns == null) {

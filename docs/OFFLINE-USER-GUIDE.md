@@ -273,7 +273,7 @@ verifier는 legacy 변환 출력에 의존하는 절차이며, 현재 `verify-of
 
 ## 13. 현재 남은 제한
 
-**제품/Runtime known gap**(Defect 2는 Slice 99A에서 CLOSED_CONTRACT_LIMITATION으로 종결, 나머지 3건은 그대로):
+**제품/Runtime known gap**(Defect 2는 Slice 99A, GRID-3는 Slice 99B correction에서 종결, 나머지 2건은 그대로):
 1. Defect 2 — `CONTENT_NOT_READY` false-negative: **CLOSED_CONTRACT_LIMITATION**(Slice 99A). Tab 동적
    navigation(`someTab.setUrl(...)`/`addTab(...)` 등)은 `identifier.member` 형태라 `SourceScriptAnalyzer`가
    항상 `UNSUPPORTED_SYNTAX`로 결정적으로 거부하며, `TargetWebSquarePipeline`은 이 시점에 전체 변환을
@@ -283,8 +283,17 @@ verifier는 legacy 변환 출력에 의존하는 절차이며, 현재 `verify-of
    `testDefect2TabDynamicNavigationMemberCallFailsClosedGenerically`로 검증). 즉 레거시에서 관찰된
    비동기 readiness 오탐(race condition)을 만들어낼 런타임 브리지 자체가 accepted 아키텍처에서는
    생성되지 않는다 -- 안전하지 않은 재현 대신 명시적 fail-closed 계약으로 닫힌 상태다.
-2. GRID-3 — 다중 Format(default/alternate) 전환: **UNSUPPORTED_SEMANTIC**. WebSquare gridView 구조상
-   표현 불가, 수동 재설계 필요.
+2. GRID-3 — 다중 Format(default/alternate) 정의: **CLOSED_CONTRACT_LIMITATION**(Slice 99B
+   correction). Format이 1개면 기존과 동일하게 완전히 지원된다. Format이 2개 이상 정의돼 있으면
+   모두 파싱은 되지만(`GridFormatParser#resolveFormat`), 그중 어느 것이 실제 사용할 "활성
+   Format"인지 결정적으로 고를 수 있는 source-side selector가 증명되지 않았다(id 문자열 의미,
+   선언 순서, Grid의 어떤 attribute도 evidence 없음 -- Slice 99B correction 재조사 결과). 따라서
+   Format이 2개 이상이면 항상 명시적으로 unresolved로 남고, `TargetPayloadExtractor`가 렌더러
+   도달 전에 결정적으로 fail-closed되어 대상 XML을 전혀 발행하지 않는다(`GridFormatParserMultiFormatTest`,
+   `TargetPayloadExtractorTest`의 `testGridAmbiguousMultiFormatFailsClosedBeforeRenderer`,
+   `TargetWebSquarePipelineTest`의 `testIntegrationAmbiguousMultiFormatGridFailsClosedNoPartialOutput`로
+   검증). 이는 "동적 전환 제한"이 아니라 selector 증거 부재에 따른 계약상 한계이며, 향후 source
+   문법에서 활성 Format selector가 실제로 증명되기 전에는 확장하지 않는다.
 3. CheckBox — dataset-bound 케이스: **OPEN**. shipped 참조 사례가 없어 안전한 일반화 근거 없음.
 4. `ev:onpageload` 자동 발화 신뢰성: **AUTO_PAGE_INIT_NOT_VERIFIED / OBSERVED**. 일부 페이지/라우트에서
    onload 바인딩이 자동으로 실행되지 않는 현상이 관찰됨. BIND-1/CheckBox-unbound/Defect-2에 공통.

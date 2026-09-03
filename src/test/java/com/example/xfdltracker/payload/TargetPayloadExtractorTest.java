@@ -130,6 +130,8 @@ public class TargetPayloadExtractorTest {
         testButtonGroupButtonWithoutTextOrValueRetainsStructuralLeafWithOrdinal();
         testNonButtonGroupPayloadHasNullExpectedStructuralMemberCount();
 
+        testGridAmbiguousMultiFormatFailsClosedBeforeRenderer();
+
         if (failures == 0) {
             System.out.println("ALL TESTS PASSED");
         } else {
@@ -496,6 +498,28 @@ public class TargetPayloadExtractorTest {
         }
         assertTrue("grid: head cell text present", sawHeadName);
         assertTrue("grid: body cell raw text present (payload does not interpret bind: prefix)", sawBodyBind);
+    }
+
+    /**
+     * MULTI_FORMAT_AMBIGUITY_FAILS_BEFORE_RENDERER_TEST -- Grid에 두번째 Format을 추가해(선택
+     * 근거 없음) v6 전체 경로(segmenter -&gt; evaluator -&gt; plan -&gt; extractor)를 실제로 태우면
+     * {@link TargetPayloadExtractor}가 렌더러 도달 전에 명시적으로 fail-closed됨을 증명한다.
+     */
+    private static void testGridAmbiguousMultiFormatFailsClosedBeforeRenderer() throws Exception {
+        Document doc = newDocument();
+        final Element form = buildFixtureForm(doc);
+        Element grid = (Element) form.getElementsByTagName("Grid").item(0);
+        Element formats = (Element) grid.getElementsByTagName("Formats").item(0);
+        Element secondFormat = doc.createElement("Format");
+        secondFormat.setAttribute("id", "alternate");
+        formats.appendChild(secondFormat);
+
+        final Fixture fx = buildFixture(form);
+        assertThrowsIllegalState("grid_ambiguous_multi_format_before_renderer", new Runnable() {
+            public void run() {
+                new TargetPayloadExtractor().extract(form, fx.plan, fx.regions);
+            }
+        });
     }
 
     private static void testTabControlLabels() throws Exception {

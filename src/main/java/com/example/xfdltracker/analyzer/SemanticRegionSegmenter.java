@@ -789,15 +789,17 @@ public class SemanticRegionSegmenter {
     }
 
     /**
-     * head Band Cell 개수로 column_count, Format Column size로 column_width를 채운다(family/
-     * variant 판정과 완전히 독립, {@link GridFormatParser} 재사용). 파싱 결과가 없으면 추측 없이
-     * parameter를 추가하지 않는다.
+     * head Band Cell 개수로 column_count, Format Column size로 column_width를 채운다(단일
+     * Format일 때만 resolved). 다중 Format 모호/중복 상태의 실제 fail-closed 권한은 이 클래스가
+     * 아니라 {@link com.example.xfdltracker.payload.TargetPayloadExtractor}가 갖는다.
      */
     private void applyGridFormatParameters(SemanticRegionResult result, Element gridSource) {
-        GridFormatParser.GridFormat format = gridFormatParser.parse(gridSource);
-        if (format == null) {
+        GridFormatParser.GridFormatSelection selection = gridFormatParser.resolveFormat(gridSource);
+        result.getComponentEvidence().add("grid_format_selection=" + selection.getEvidence());
+        if (!selection.isResolved()) {
             return;
         }
+        GridFormatParser.GridFormat format = selection.getFormat();
         if (!format.getHeadCells().isEmpty()) {
             result.getParameters().put("column_count", format.getHeadCells().size());
             result.getComponentEvidence().add("column_count_source=head_band_cell_count");
