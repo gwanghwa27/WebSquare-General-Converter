@@ -94,6 +94,8 @@ public class StandaloneDependencyIsolationTest {
         testGovernedWindowsScriptInventoryHasNoUndeclaredAddition();
         testAcceptedPathHasNoTabRuntimeScriptGeneratorReference();
         testAcceptedTabControlOutputContainsNoLegacyGetScopeOrRuntimeScript();
+        testAcceptedPathHasNoLegacyClassMergeHelperReference();
+        testAcceptedButtonGridClassOutputMatchesAuditedContract();
 
         if (failures == 0) {
             System.out.println("ALL TESTS PASSED");
@@ -1362,6 +1364,99 @@ public class StandaloneDependencyIsolationTest {
                 !generated.contains("getScope"));
         assertTrue("v5-gap: accepted TAB_CONTROL output must not reference xplatform-tab-runtime.js",
                 !generated.contains("xplatform-tab-runtime.js"));
+    }
+
+    /**
+     * CLASS_MERGE_RUNTIME_REQUIRED(Slice 99H) 재분류 근거: legacy 병합 helper와
+     * PropertyMappingRegistry 둘 다 accepted 경로 어디에서도 참조되지 않는다 --
+     * PropertyMappingRegistry는 legacy Phase3ScreenAnalyzer에서만 소비된다.
+     */
+    private static void testAcceptedPathHasNoLegacyClassMergeHelperReference() throws Exception {
+        File root = repositoryRoot();
+        List<String> acceptedPathFiles = Arrays.asList(
+                "src/main/java/com/example/xfdltracker/pipeline/TargetWebSquarePipeline.java",
+                "src/main/java/com/example/xfdltracker/renderer/AtomicWebSquareRenderer.java",
+                "src/main/java/com/example/xfdltracker/renderer/CompositionRenderer.java",
+                "src/main/java/com/example/xfdltracker/renderer/TargetDocumentAssembler.java",
+                "src/main/java/com/example/xfdltracker/behavior/TargetScriptDocumentIntegrator.java",
+                "src/main/java/com/example/xfdltracker/payload/TargetPayloadBehaviorFinalizer.java",
+                "src/main/java/com/example/xfdltracker/payload/TargetPayloadExtractor.java",
+                "src/main/java/com/example/xfdltracker/batch/ClosedNetworkBatchCli.java",
+                "src/main/java/com/example/xfdltracker/batch/BatchConversionRunner.java");
+        String[] forbiddenClassMergeTokens = {
+                "PropertyMappingRegistry",
+                "resolveVideoEvidenceBaseClass",
+                "appendClassTokenIfAbsent"
+        };
+        for (String relativePath : acceptedPathFiles) {
+            String text = new String(
+                    Files.readAllBytes(new File(root, relativePath).toPath()), StandardCharsets.UTF_8);
+            for (String token : forbiddenClassMergeTokens) {
+                assertTrue(relativePath + ": accepted path must not reference " + token,
+                        !text.contains(token));
+            }
+        }
+    }
+
+    /**
+     * accepted BUTTON/GRID 산출물의 class 동작이 감사된 계약과 일치함을 실제 파이프라인 실행으로
+     * 증명한다: GRID는 고정 wq_gvw만 발행, BUTTON은 어떤 class도 발행하지 않으며 source
+     * cssclass 값은 둘 다 산출물에 나타나지 않는다(병합 없음).
+     */
+    private static void testAcceptedButtonGridClassOutputMatchesAuditedContract() throws Exception {
+        File buttonDir = Files.createTempDirectory("class-merge-gap-button-fixture").toFile();
+        File buttonXfdl = new File(buttonDir, "ButtonCssClass.xfdl");
+        String buttonContent = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
+                + "<FDL version=\"1.5\">\n"
+                + "  <Form id=\"ButtonCssClass\" width=\"400\" height=\"300\">\n"
+                + "    <Div id=\"btnGroup1\" width=\"400\">\n"
+                + "      <Button id=\"btnSave\" left=\"0\" width=\"50\" height=\"20\" text=\"btnSave\" "
+                + "cssclass=\"custom_source_class\" />\n"
+                + "    </Div>\n"
+                + "  </Form>\n"
+                + "</FDL>\n";
+        Files.write(buttonXfdl.toPath(), buttonContent.getBytes(StandardCharsets.UTF_8));
+        File buttonOutput = new File(buttonDir, "ButtonCssClass.xml");
+        new TargetWebSquarePipeline().convert(buttonXfdl, buttonOutput,
+                new TargetPipelineConfig(com.example.xfdltracker.runtime.TargetRuntimeProfile.empty()));
+        String buttonGenerated = new String(Files.readAllBytes(buttonOutput.toPath()), StandardCharsets.UTF_8);
+        assertTrue("class-merge-gap: accepted BUTTON output must not contain btn_cm",
+                !buttonGenerated.contains("btn_cm"));
+        assertTrue("class-merge-gap: accepted BUTTON output must not contain source cssclass value",
+                !buttonGenerated.contains("custom_source_class"));
+
+        File gridDir = Files.createTempDirectory("class-merge-gap-grid-fixture").toFile();
+        File gridXfdl = new File(gridDir, "GridCssClass.xfdl");
+        String gridContent = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
+                + "<FDL version=\"1.5\">\n"
+                + "  <Form id=\"GridCssClass\" width=\"400\" height=\"300\">\n"
+                + "    <Grid id=\"grdMinimal\" left=\"0\" top=\"0\" width=\"200\" height=\"120\" "
+                + "cssclass=\"custom_source_class\">\n"
+                + "      <Formats>\n"
+                + "        <Format id=\"fmt1\">\n"
+                + "          <Columns>\n"
+                + "            <Column size=\"100\" />\n"
+                + "          </Columns>\n"
+                + "          <Band id=\"head\">\n"
+                + "            <Cell col=\"0\" row=\"0\" />\n"
+                + "          </Band>\n"
+                + "          <Band id=\"body\">\n"
+                + "            <Cell col=\"0\" row=\"0\" />\n"
+                + "          </Band>\n"
+                + "        </Format>\n"
+                + "      </Formats>\n"
+                + "    </Grid>\n"
+                + "  </Form>\n"
+                + "</FDL>\n";
+        Files.write(gridXfdl.toPath(), gridContent.getBytes(StandardCharsets.UTF_8));
+        File gridOutput = new File(gridDir, "GridCssClass.xml");
+        new TargetWebSquarePipeline().convert(gridXfdl, gridOutput,
+                new TargetPipelineConfig(com.example.xfdltracker.runtime.TargetRuntimeProfile.empty()));
+        String gridGenerated = new String(Files.readAllBytes(gridOutput.toPath()), StandardCharsets.UTF_8);
+        assertTrue("class-merge-gap: accepted GRID output must contain fixed base class wq_gvw",
+                gridGenerated.contains("wq_gvw"));
+        assertTrue("class-merge-gap: accepted GRID output must not contain source cssclass value",
+                !gridGenerated.contains("custom_source_class"));
     }
 
     private static File repositoryRoot() {

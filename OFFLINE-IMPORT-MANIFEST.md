@@ -89,7 +89,22 @@ script/XJS에서 이 wrapper-ID를 참조하는 코드가 발견되지 않았다
    `V5_RUNTIME_REGRESSION_FINAL_DISPOSITION = CLOSED_NOT_APPLICABLE_TO_ACCEPTED_PATH`로 종결됐다
    (`README-OFFLINE.md` 항목 8 참고)
 7. **`CLASS_MERGE_RUNTIME_REQUIRED`**(`NON_BLOCKING_CURRENT_CORPUS`) — cssclass+btn_cm/wq_gvw
-   병합 실사례가 corpus/폐쇄망 확인 대상 화면에 없어 미검증
+   병합 실사례가 corpus/폐쇄망 확인 대상 화면에 없어 미검증.
+   **Slice 99H 추가 판정**: 이 항목이 기술하는 `WebSquareGenerator.copyAttributeIfPresent`
+   기반 legacy 병합 로직(source `cssclass` 값을 `class`에 먼저 복사한 뒤
+   `appendClassTokenIfAbsent`로 `btn_cm`/`wq_gvw` base class를 병합) 자체의 미검증 상태는
+   변경되지 않았으나(`CLASS_MERGE_LEGACY_RUNTIME_VERIFIED = FALSE` 그대로), 현재 accepted
+   경로(`TargetWebSquarePipeline`, 이 manifest의 authority가 아님)는 세 가지 서로 다른 관심사로
+   분리된다 -- (1) legacy 병합 로직 자체는 accepted 경로 어디에서도 호출되지 않고,
+   `PropertyMappingRegistry`의 `cssclass -> class` 매핑도 legacy 전용 `Phase3ScreenAnalyzer`
+   에서만 소비되며(accepted 경로 호출 0건), (2) accepted `AtomicWebSquareRenderer`는 GRID에
+   고정 base class `wq_gvw`를 항상 발행하지만(BUTTON은 `btn_cm`을 전혀 발행하지 않음) 이는
+   source cssclass와 무관한 독립된 고정 동작이며, (3) accepted 경로는 source `cssclass` 속성을
+   어느 단계에서도 읽거나 target class로 발행하지 않는다(합성 fixture 실행으로 실증 --
+   BUTTON/GRID 둘 다 source cssclass 값이 산출물에 전혀 나타나지 않음). 현재 문서 어디에도
+   accepted 경로가 source cssclass 병합을 지원한다는 명시적 계약 주장이 없으므로,
+   `CLASS_MERGE_RUNTIME_FINAL_DISPOSITION = CLOSED_NOT_APPLICABLE_TO_ACCEPTED_PATH`로 종결됐다
+   (`README-OFFLINE.md` 항목 8 참고)
 
 ## 이 Freeze에 포함되지 않은 것
 

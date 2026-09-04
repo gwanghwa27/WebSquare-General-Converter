@@ -144,8 +144,18 @@ TAB_CONTROL 대상 XML(`w2:tabControl`/`w2:tabs`/`w2:content`)에는 `getScope`/
 `xplatform-tab-runtime.js` 참조가 0건이다. 따라서 이 gap은 현재 accepted-path의 product/runtime
 gap이 아니라 legacy 전용 미검증 사안으로 재분류됐다(`OFFLINE-IMPORT-MANIFEST.md` 항목 6 참고).
 
-`CLASS_MERGE_RUNTIME_REQUIRED`(`OFFLINE-IMPORT-MANIFEST.md` 참고)는 이번 Slice에서 새로 판단하지
-않았으며, 기존 standing(미검증 상태) 그대로 남아 있다.
+`CLASS_MERGE_RUNTIME_REQUIRED`(`TabExternalContent` 등 legacy `WebSquareGenerator`의
+`copyAttributeIfPresent`+`resolveVideoEvidenceBaseClass`+`appendClassTokenIfAbsent`로 source
+`cssclass`를 `btn_cm`/`wq_gvw` base class와 병합하는 동작이 실제 v5 런타임에서 동작하는지
+미검증)는 Slice 99H에서 `CLOSED_NOT_APPLICABLE_TO_ACCEPTED_PATH`로 종결됐다 -- 그 legacy 병합
+동작 자체는 여전히 real-runtime 미검증 상태로 남아 있으나(`CLASS_MERGE_LEGACY_RUNTIME_VERIFIED
+= FALSE`, 이번 Slice가 새로 검증한 것이 아님), 세 관심사를 분리해 확인한 결과 (1) legacy 병합
+로직과 `PropertyMappingRegistry`의 `cssclass -> class` 매핑 둘 다 accepted 경로에서 호출되지
+않고, (2) accepted `AtomicWebSquareRenderer`는 GRID에 고정 base class `wq_gvw`만 독립적으로
+발행하며(BUTTON은 `btn_cm`을 전혀 발행하지 않음, source cssclass와 무관), (3) accepted 경로는
+source `cssclass` 속성 자체를 어느 단계에서도 읽거나 발행하지 않는다(합성 BUTTON/GRID fixture로
+실증). 현재 문서 어디에도 accepted 경로의 source cssclass 병합 지원을 주장하지 않으므로 이는
+현재 accepted-path의 product/runtime gap이 아니다(`OFFLINE-IMPORT-MANIFEST.md` 항목 7 참고).
 
 별도 certification blocker 1건: Target JDK 1.8.0_111 확보/검증(BLOCKED_BY_DISTRIBUTION — 폐쇄망에서
 별도 확보 필요, `verify-offline.*`의 1단계 게이트로 확인).

@@ -179,6 +179,13 @@ TargetPipelineConfig)`를 해당 XFDL 파일에 대해 직접 호출해야 한�
 
 ## 9. Studio에서 확인할 항목
 
+**Slice 99H 명확화**: 아래 항목은 항목 8과 동일한 legacy `XPlatformProjectConverter`/STT00030
+기준 역사적 Studio 체크리스트다(재현 불가). 특히 항목 5의 `btn_cm`/`wq_gvw`는 accepted 경로가
+source `cssclass`를 병합 발행한다는 주장이 아니다 -- accepted `TargetWebSquarePipeline`은
+GRID에 고정 `wq_gvw`만 독립 발행하고(`CLASS_MERGE_RUNTIME_RESOLUTION_CLASS =
+LEGACY_ONLY_NOT_ACCEPTED_PATH_CONCERN`, `README-OFFLINE.md` 항목 8 참고) BUTTON에는 `btn_cm`을
+전혀 발행하지 않는다.
+
 1. `Div01`(Calendar/Combo) 표시 여부
 2. `Div00`(조회/엑셀 버튼) 표시 여부
 3. `Div02`/`Div03`(우측 버튼 4개씩) 표시 여부 -- 특히 배경색이 이제
