@@ -116,10 +116,11 @@ Auto page init:
 CLOSED_CONTRACT_LIMITATION (Slice 99D -- accepted path never generates ev:onpageload, 0 consumers)
 
 Closed-network batch entrypoint:
-IMPLEMENTED_PENDING_TARGET_JDK_CERTIFICATION (Slice 99F -- closed-network-import\BATCH-CONVERT.cmd/.sh,
-explicit caller-supplied TargetRuntimeProfile file required, no implicit default; delegates the
-exact-JDK gate to verify-standalone.bat rather than duplicating it -- gated by the same
-TARGET_JDK_1_8_0_111_VERIFICATION blocker below, not a separate one)
+IMPLEMENTED_AND_TARGET_JDK_CERTIFIED (Slice 99F 구현 + Slice 99I 인증 -- closed-network-import\
+BATCH-CONVERT.cmd/.sh, explicit caller-supplied TargetRuntimeProfile file required, no implicit
+default; delegates the exact-JDK gate to verify-standalone.bat rather than duplicating it -- 아래
+Target JDK 인증 근거와 동일하게 정규 entrypoint smoke와 raw committed HEAD smoke 둘 다 PASS로
+확인됨)
 
 Phase1 SHA:
 PASS
@@ -157,8 +158,20 @@ source `cssclass` 속성 자체를 어느 단계에서도 읽거나 발행하지
 실증). 현재 문서 어디에도 accepted 경로의 source cssclass 병합 지원을 주장하지 않으므로 이는
 현재 accepted-path의 product/runtime gap이 아니다(`OFFLINE-IMPORT-MANIFEST.md` 항목 7 참고).
 
-별도 certification blocker 1건: Target JDK 1.8.0_111 확보/검증(BLOCKED_BY_DISTRIBUTION — 폐쇄망에서
-별도 확보 필요, `verify-offline.*`의 1단계 게이트로 확인).
+Target JDK 1.8.0_111 인증(Slice 99I): `TARGET_JDK_1_8_0_111_VERIFICATION = PASS`,
+`TARGET_JDK_EXACT_RUNTIME_AND_COMPILER_CERTIFIED = TRUE`. same-home 짝 확보:
+`C:\Program Files\Java\jdk1.8.0_111`(java=1.8.0_111, javac=1.8.0_111) -- 별도 다운로드/설치 없이
+로컬에 이미 존재하던 설치본이며, process-local(비영속) 환경으로만 활성화해 확인했다(시스템
+JAVA_HOME/PATH는 이 인증 과정에서 영구 변경되지 않음). 근거: 작업 트리 `verify-standalone.bat` PASS,
+raw Git blob으로만 구체화한 committed HEAD의 `verify-standalone.bat` PASS, 정규
+`BATCH-CONVERT.cmd` smoke PASS, raw committed `BATCH-CONVERT.cmd` smoke PASS(4건 전부).
+**주의**: 기본 shell에서 `java` 명령 자체는 여전히 다른 PATH 항목(java8path redirector,
+1.8.0_503)으로 resolve될 수 있다 -- 이는 시스템 전역 기본 java가 1.8.0_111이라는 뜻이 아니라,
+exact target JDK 짝이 로컬에 인증 가능한 상태로 존재하고 필요 시 process-local로 정확히 선택
+가능하다는 뜻이다. `CLOSED_NETWORK_IMPORT_TECHNICAL_READINESS = READY` -- 이는 accepted
+아키텍처가 정확한 인증 target JDK 아래서 빌드/검증/실행 가능함을 뜻할 뿐, 위에 기록된 fail-closed
+계약 한계(Defect 2/GRID-3/CheckBox/auto page-init)를 무효화하지 않으며, GitHub Push/공개 배포가
+완료됐다는 뜻도 아니다(원격 게시는 여전히 사용자 전용 작업이다).
 
 상세는 `docs/FINAL-VERIFICATION-REPORT.md`, `docs/followup-checkBox-ready-jdk-phase1-final.md` 참고.
 

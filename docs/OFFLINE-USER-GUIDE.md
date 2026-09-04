@@ -445,11 +445,14 @@ verifier는 legacy 변환 출력에 의존하는 절차이며, 현재 `verify-of
    이는 CheckBox dataset-bound 계약 한계(항목 3)나 `ev:onpageload` 자동 page-init 종결(항목 4)과는
    별개의 fail-closed 사유이며, 이 항목이 항목 4의 auto-page-init 종결을 다시 여는 것은 아니다.
 
-**별도 certification blocker 1건**:
-- exact JDK 1.8.0_111 확보/검증 상태: **BLOCKED_BY_DISTRIBUTION**. 이 프로젝트를 패키징한 온라인 PC에서
-  신뢰 가능한 portable 1.8.0_111 바이너리를 확보하지 못했다(Oracle은 로그인 필수라 시도하지 않았고, 그
-  외 아카이브는 설치형이거나 update 번호가 다름). **폐쇄망 사용자가 별도로 exact 1.8.0_111을 확보해
-  `verify-offline.*`의 1단계 게이트를 통과시켜야 한다.**
+**Target JDK 1.8.0_111 인증(Slice 99I)**:
+- exact JDK 1.8.0_111 확보/검증 상태: **PASS**(`TARGET_JDK_1_8_0_111_VERIFICATION = PASS`,
+  `TARGET_JDK_EXACT_RUNTIME_AND_COMPILER_CERTIFIED = TRUE`). 로컬에 이미 설치돼 있던 same-home
+  짝(`C:\Program Files\Java\jdk1.8.0_111`, java/javac 둘 다 1.8.0_111)을 process-local(비영속)
+  환경으로 활성화해, 작업 트리/raw committed HEAD의 `verify-standalone.bat`과 정규/raw committed
+  `BATCH-CONVERT.cmd` smoke 4건 전부 PASS로 확인했다(상세 근거는 `README-OFFLINE.md` 항목 7 참고).
+  `CLOSED_NETWORK_IMPORT_TECHNICAL_READINESS = READY`이나, 이는 위 fail-closed 계약 한계들을
+  무효화하지 않으며 GitHub Push/공개 배포 완료를 뜻하지도 않는다.
 
 ## 14. WebSquare 배포 관련 주의사항
 
