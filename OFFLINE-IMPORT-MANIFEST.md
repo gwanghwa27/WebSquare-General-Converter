@@ -79,7 +79,15 @@ script/XJS에서 이 wrapper-ID를 참조하는 코드가 발견되지 않았다
 6. **`V5_RUNTIME_REGRESSION_REQUIRED`** — `TabRuntimeScriptGenerator`의
    `component('grp_content').getScope()`가 `xf:group` root에서 실제 v5 런타임에 동작하는지 미검증
    (이번 Root/Body 구조 변경으로 `grp_content`의 id/namespace/직접 스크립트 계약은 변경되지
-   않았으므로 이 gap 자체는 이번 변경으로 새로 발생한 것이 아니다 — 기존 gap 그대로 승계)
+   않았으므로 이 gap 자체는 이번 변경으로 새로 발생한 것이 아니다 — 기존 gap 그대로 승계).
+   **Slice 99G 추가 판정**: 이 항목이 기술하는 `WebSquareGenerator` 기반 legacy 산출물 자체의 미검증
+   상태는 변경되지 않았으나(`V5_RUNTIME_REGRESSION_REAL_RUNTIME_VERIFIED = FALSE` 그대로), 현재
+   accepted 배치 실행 authority인 `TargetWebSquarePipeline`(이 manifest의 authority가 아님 --
+   `CLOSED_NETWORK_MANIFEST_IS_CURRENT_BATCH_EXECUTION_AUTHORITY = FALSE`)는
+   `TabRuntimeScriptGenerator`를 어디에서도 호출하지 않고 그 accepted TAB_CONTROL 출력에는
+   `getScope`/`xplatform-tab-runtime.js` 참조가 0건임이 확인되어,
+   `V5_RUNTIME_REGRESSION_FINAL_DISPOSITION = CLOSED_NOT_APPLICABLE_TO_ACCEPTED_PATH`로 종결됐다
+   (`README-OFFLINE.md` 항목 8 참고)
 7. **`CLASS_MERGE_RUNTIME_REQUIRED`**(`NON_BLOCKING_CURRENT_CORPUS`) — cssclass+btn_cm/wq_gvw
    병합 실사례가 corpus/폐쇄망 확인 대상 화면에 없어 미검증
 

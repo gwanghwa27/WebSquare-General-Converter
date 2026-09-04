@@ -92,6 +92,8 @@ public class StandaloneDependencyIsolationTest {
         testAuthoritativeExactJdkGateScriptsAreCoveredByNonTextPolicy();
         testGovernedWindowsScriptsHaveCrlfOnlyRawBytes();
         testGovernedWindowsScriptInventoryHasNoUndeclaredAddition();
+        testAcceptedPathHasNoTabRuntimeScriptGeneratorReference();
+        testAcceptedTabControlOutputContainsNoLegacyGetScopeOrRuntimeScript();
 
         if (failures == 0) {
             System.out.println("ALL TESTS PASSED");
@@ -1299,6 +1301,67 @@ public class StandaloneDependencyIsolationTest {
             result.put(tokens[0], attrs);
         }
         return result;
+    }
+
+    /**
+     * V5_RUNTIME_REGRESSION_REQUIRED(Slice 99G) 재분류 근거: TabRuntimeScriptGenerator는 accepted
+     * 경로 어디에서도 참조되지 않고 forbidden legacy WebSquareGenerator/XPlatformProjectConverter
+     * 에서만 호출된다. batch 변환 authority가 여전히 TargetWebSquarePipeline임도 함께 확인한다.
+     */
+    private static void testAcceptedPathHasNoTabRuntimeScriptGeneratorReference() throws Exception {
+        File root = repositoryRoot();
+        List<String> acceptedPathFiles = Arrays.asList(
+                "src/main/java/com/example/xfdltracker/pipeline/TargetWebSquarePipeline.java",
+                "src/main/java/com/example/xfdltracker/renderer/AtomicWebSquareRenderer.java",
+                "src/main/java/com/example/xfdltracker/renderer/CompositionRenderer.java",
+                "src/main/java/com/example/xfdltracker/renderer/TargetDocumentAssembler.java",
+                "src/main/java/com/example/xfdltracker/behavior/TargetScriptDocumentIntegrator.java",
+                "src/main/java/com/example/xfdltracker/payload/TargetPayloadBehaviorFinalizer.java",
+                "src/main/java/com/example/xfdltracker/batch/ClosedNetworkBatchCli.java",
+                "src/main/java/com/example/xfdltracker/batch/BatchConversionRunner.java");
+        String batchRunnerText = null;
+        for (String relativePath : acceptedPathFiles) {
+            String text = new String(
+                    Files.readAllBytes(new File(root, relativePath).toPath()), StandardCharsets.UTF_8);
+            assertTrue(relativePath + ": accepted path must not reference TabRuntimeScriptGenerator",
+                    !text.contains("TabRuntimeScriptGenerator"));
+            if (relativePath.endsWith("BatchConversionRunner.java")) {
+                batchRunnerText = text;
+            }
+        }
+        assertTrue("v5-gap: BatchConversionRunner.java must invoke TargetWebSquarePipeline "
+                        + "(batch conversion authority)",
+                batchRunnerText != null && batchRunnerText.contains("TargetWebSquarePipeline"));
+    }
+
+    /**
+     * accepted TAB_CONTROL 산출물이 실제로 getScope/xplatform-tab-runtime.js를 발행하지 않음을
+     * 실제 파이프라인 실행으로 증명한다(정적 텍스트 추정이 아니라 real output 검사).
+     */
+    private static void testAcceptedTabControlOutputContainsNoLegacyGetScopeOrRuntimeScript() throws Exception {
+        File dir = Files.createTempDirectory("v5-gap-tabcontrol-fixture").toFile();
+        File xfdl = new File(dir, "TabControl.xfdl");
+        String content = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
+                + "<FDL version=\"1.5\">\n"
+                + "  <Form id=\"TabControlForm\" width=\"400\" height=\"300\">\n"
+                + "    <Tab id=\"tab1\">\n"
+                + "      <Tabpages>\n"
+                + "        <Tabpage id=\"tp1\" text=\"tp1\" />\n"
+                + "      </Tabpages>\n"
+                + "    </Tab>\n"
+                + "  </Form>\n"
+                + "</FDL>\n";
+        Files.write(xfdl.toPath(), content.getBytes(StandardCharsets.UTF_8));
+        File output = new File(dir, "TabControl.xml");
+        new TargetWebSquarePipeline().convert(
+                xfdl, output, new TargetPipelineConfig(com.example.xfdltracker.runtime.TargetRuntimeProfile.empty()));
+        String generated = new String(Files.readAllBytes(output.toPath()), StandardCharsets.UTF_8);
+        assertTrue("v5-gap: accepted TAB_CONTROL output must contain w2:tabControl",
+                generated.contains("w2:tabControl"));
+        assertTrue("v5-gap: accepted TAB_CONTROL output must not contain getScope",
+                !generated.contains("getScope"));
+        assertTrue("v5-gap: accepted TAB_CONTROL output must not reference xplatform-tab-runtime.js",
+                !generated.contains("xplatform-tab-runtime.js"));
     }
 
     private static File repositoryRoot() {

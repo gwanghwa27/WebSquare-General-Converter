@@ -131,10 +131,21 @@ dataset-bound는 Slice 99C에서, `ev:onpageload` 자동 page-init은 Slice 99D�
 accepted-v6 rendering-equivalence는 Slice 99E에서 각각 CLOSED_CONTRACT_LIMITATION으로 종결
 (`docs/OFFLINE-USER-GUIDE.md` 항목 13 참고 -- CheckBox는 dataset-bound(BindItem 존재)든 unbound든 모두
 렌더러 도달 전에 명시적으로 fail-closed되어 대상 XML을 전혀 발행하지 않는다; `ev:onpageload`는 accepted
-path가 애초에 생성하지 않아 의존하는 산출물이 0건). 이 5건은 모두 종결됐으나, 이것이 전체 남은
-product/runtime known gap이 0건이라는 의미는 아니다 -- `V5_RUNTIME_REGRESSION_REQUIRED`/
-`CLASS_MERGE_RUNTIME_REQUIRED`(`OFFLINE-IMPORT-MANIFEST.md` 참고)는 이 Slice에서 새로 판단하지
-않았으며, 그 문서에 이미 기록된 기존 standing(미검증 상태) 그대로 남아 있다.
+path가 애초에 생성하지 않아 의존하는 산출물이 0건).
+
+`V5_RUNTIME_REGRESSION_REQUIRED`(`TabRuntimeScriptGenerator`의 `component('grp_content').getScope()`가
+`xf:group` root에서 실제 v5 런타임에 동작하는지 미검증)는 Slice 99G에서
+CLOSED_NOT_APPLICABLE_TO_ACCEPTED_PATH로 종결됐다 -- 그 역사적 getScope 동작 자체는 여전히
+real-runtime 미검증 상태로 남아 있으나(`V5_RUNTIME_REGRESSION_REAL_RUNTIME_VERIFIED = FALSE`,
+이번 Slice가 새로 검증한 것이 아님), `TabRuntimeScriptGenerator`는 현재 accepted 경로
+(`TargetWebSquarePipeline`)의 어떤 클래스에서도 직접/간접 호출되지 않고 forbidden legacy
+`WebSquareGenerator`/`XPlatformProjectConverter`에서만 호출되며, accepted 경로가 생성하는
+TAB_CONTROL 대상 XML(`w2:tabControl`/`w2:tabs`/`w2:content`)에는 `getScope`/
+`xplatform-tab-runtime.js` 참조가 0건이다. 따라서 이 gap은 현재 accepted-path의 product/runtime
+gap이 아니라 legacy 전용 미검증 사안으로 재분류됐다(`OFFLINE-IMPORT-MANIFEST.md` 항목 6 참고).
+
+`CLASS_MERGE_RUNTIME_REQUIRED`(`OFFLINE-IMPORT-MANIFEST.md` 참고)는 이번 Slice에서 새로 판단하지
+않았으며, 기존 standing(미검증 상태) 그대로 남아 있다.
 
 별도 certification blocker 1건: Target JDK 1.8.0_111 확보/검증(BLOCKED_BY_DISTRIBUTION — 폐쇄망에서
 별도 확보 필요, `verify-offline.*`의 1단계 게이트로 확인).
