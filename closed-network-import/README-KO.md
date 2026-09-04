@@ -1,66 +1,65 @@
 # 폐쇄망 1회 반입 가이드 (One-shot Closed Network Import)
 
 > **폐쇄망 반입 대상은 물리적으로 1개 파일이다**: 이 저장소 루트를 통째로
-> 압축한 `closed-network-candidate-<commit>.zip`(예:
-> `closed-network-candidate-8443582.zip`, 동봉된 `.zip.sha256`으로 무결성
-> 확인) **하나만** 반입한다. **`closed-network-import/` 폴더만 따로
-> 복사하지 말 것** -- 이 폴더는 소스를 담고 있지 않다(검증 kit일 뿐이며,
-> `src/main/java` 등 실제 소스는 저장소 루트의 다른 디렉터리에 있다). ZIP을
-> 풀면 최상위에 `v6-design-structure-alignment-<commit>/` 디렉터리 하나가
-> 나오고, 그 안에 `BUILD-CANDIDATE-INFO.txt`(어느 commit인지 식별)와 전체
-> editable source가 함께 들어있다.
+> 압축한 ZIP 파일(예: `websquare-general-converter-<commit>.zip` -- 실제
+> 파일명은 이 저장소를 압축하는 사용자가 임의로 정하며, 동봉된
+> `.zip.sha256`으로 무결성 확인) **하나만** 반입한다. **`closed-network-import/`
+> 폴더만 따로 복사하지 말 것** -- 이 폴더는 소스를 담고 있지 않다(검증
+> kit일 뿐이며, `src/main/java` 등 실제 소스는 저장소 루트의 다른
+> 디렉터리에 있다). ZIP을 풀면 이 저장소의 전체 editable source가 그대로
+> 들어있다.
 
-이 문서는 `candidate/v6-design-structure-alignment` 브랜치를 폐쇄망에
-**한 번만** 반입해서 build → conversion → regression → class-policy 검증까지
-마치고, 이후 폐쇄망 WebSquare Studio에서 최종 확인할 수 있도록 안내한다.
-인터넷 문서 링크에 의존하지 않는다 -- 필요한 모든 것은 이 저장소 안에
-있다.
+이 문서는 이 저장소(main)를 폐쇄망에 **한 번만** 반입해서 build →
+conversion → regression → class-policy 검증까지 마치고, 이후 폐쇄망
+WebSquare Studio에서 최종 확인할 수 있도록 안내한다. 인터넷 문서 링크에
+의존하지 않는다 -- 필요한 모든 것은 이 저장소 안에 있다.
 
 ## 0. 중요 -- 이 저장소 자체가 이미 self-contained project다
 
 이 `closed-network-import/` 디렉터리는 별도의 파일 복사본 묶음이
-**아니다**. `candidate/v6-design-structure-alignment` 브랜치(git 저장소)
-전체가 이미 완전한 독립 프로젝트다(`build.sh`/`build.bat`,
+**아니다**. 이 저장소(WebSquare General Converter, git 저장소) 전체가
+이미 완전한 독립 프로젝트다(`build.sh`/`build.bat`,
 `convert-sample.sh`/`.bat`, `verify-offline.sh`/`.bat`, `src/`,
 `sample-phase3-project/`, `analysis/` 등 전부 저장소 root에 존재). 따라서:
 
-**"1회 반입" = 이 git 브랜치(또는 이 커밋 시점의 전체 디렉터리)를 폐쇄망에
+**"1회 반입" = 이 저장소(또는 이 commit 시점의 전체 디렉터리)를 폐쇄망에
 한 번 복사/체크아웃하는 것 자체다.** 이 디렉터리는 그 반입 이후 실행할
 **무결성 확인 + 빌드/회귀 + class-policy 검증을 자동화하는 kit**이며,
-저장소를 다시 쪼개어 담지 않는다(요청사항의 "기존 프로젝트 오염 최소화"
-원칙과 "완전한 candidate working-copy" 요건을 동시에 만족하는 방식 --
-이미 전체가 working-copy이므로 이중으로 담지 않는다).
+저장소를 다시 쪼개어 담지 않는다 -- 이미 저장소 전체가 반입 대상이므로
+별도로 이중으로 담지 않는다.
 
 ## 1. 반입 위치
 
-폐쇄망 Windows WebSquare 개발 환경에서, 기존 candidate 저장소를 두는
-위치(예: `C:\work\xplatform-to-websquare-offline-import\`)에 이 브랜치
+폐쇄망 Windows WebSquare 개발 환경에서, 원하는 작업 위치에 이 저장소
 전체를 복사한다. 경로 자체는 자유롭게 선택 가능 -- 공백/한글 경로도
 지원한다(하위 도구들이 전부 quoting을 지킴).
 
 ## 2. 기존 project backup 방법
 
-반입 전, 기존에 이미 폐쇄망에 있던 이전 candidate 사본이 있다면:
+반입 전, 기존에 이미 폐쇄망에 있던 이전 반입 사본이 있다면:
 
 ```
-robocopy "C:\work\xplatform-to-websquare-offline-import" "C:\work\xplatform-to-websquare-offline-import.bak-YYYYMMDD" /E
+robocopy "<이전 반입 경로>" "<이전 반입 경로>.bak-YYYYMMDD" /E
 ```
 (또는 폴더 전체를 다른 이름으로 복사해 두는 것으로 충분 -- git 저장소이므로
 `.git` 히스토리 자체가 이미 이전 상태의 백업이기도 하다.)
 
 ## 3. 변경 source 적용 방법
 
-이 브랜치(`candidate/v6-design-structure-alignment`, 이번 라운드 기준 최신
-커밋)를 그대로 폐쇄망에 복사하면 끝이다. 별도 patch 적용 단계가 없다 --
-"몇 개 파일만 덮어쓰기" 방식이 아니라 전체 디렉터리 자체가 최신 상태다.
-
-이번 라운드에서 실제로 바뀐 파일(참고용, 별도 조치 불필요):
-- `src/main/java/com/example/xfdltracker/converter/WebSquareGenerator.java`
-  (Combo `disabledClass` 결정을 generic policy 함수로 리팩터링)
-- `resources/target-websquare/WebContent/assets/css/contents.css`
-  (직전 라운드, canonical CSS reference-only copy -- **REFERENCE_ONLY**,
-  아래 4번 참고)
-- `analysis/*.md`, `analysis/*.diff`(문서, 코드 아님)
+이 저장소(main, 최신 commit 기준)를 그대로 폐쇄망에 복사하면 끝이다.
+별도 patch 적용 단계가 없다 -- "몇 개 파일만 덮어쓰기" 방식이 아니라 전체
+디렉터리 자체가 최신 상태다. 어떤 commit이 어떤 파일을 변경했는지 추적하고
+싶으면 이 저장소의 git 히스토리(`git log`)를 변경 이력 참고 자료/historical
+evidence/provenance 확인 수단으로 사용할 수 있다 -- 다만 git commit 이력
+자체는 현재 architecture, runtime contract, capability 지원 범위 또는
+accepted behavior의 authority가 아니다. 현재 architecture와 accepted
+behavior는 Reviewer가 승인한 architecture standing과 accepted current
+source/contract를 기준으로 판단하며, 이 문서를 포함한 active
+documentation(`README.md`, `README-OFFLINE.md`,
+`docs/OFFLINE-USER-GUIDE.md` 등)은 그 accepted architecture를 사용자에게
+설명하는 안내 문서일 뿐, 문서 자체가 Reviewer standing을 변경하거나 새로운
+capability를 승인하는 authority는 아니다. 이 문서에 라운드별 변경 파일
+목록을 별도로 유지하지 않는다.
 
 ## 4. Canonical contents.css에 대해 -- 실제 CSS는 Git 미추적, metadata만 보관
 
@@ -70,7 +69,7 @@ robocopy "C:\work\xplatform-to-websquare-offline-import" "C:\work\xplatform-to-w
 상세: `analysis/repository-external-artifact-policy.md`). contents.css는
 이미 `websquare/config.xml`의 `<stylesheet earlyImportList="...">` 설정을
 통해 폐쇄망 프로젝트에 전역 로딩되고 있음이 확인됐다(`analysis/
-contents-css-integration-audit.md`). **이 candidate 저장소는 실제 운영
+contents-css-integration-audit.md`). **이 저장소는 실제 운영
 `WebContent/assets/css/contents.css`를 자동으로 배포/덮어쓰지 않는다** --
 이 converter는 CSS 파일을 배포하는 코드를 포함하지 않고, 빌드/회귀도 이
 파일의 존재를 요구하지 않는다(`EXTERNAL_FILE_REQUIRED_FOR_BUILD = NO`).
@@ -91,7 +90,7 @@ metadata에 기록된 SHA(`9634dbcd506d3eeaf1a238e4157059d6c3c4c2facdd85039ba8b4
 참고):
 
 ```
-cd C:\work\xplatform-to-websquare-offline-import
+cd <반입한 저장소 루트>
 build.bat
 ```
 (Windows) 또는 `sh build.sh`(WSL/Git Bash 있는 경우).
@@ -154,7 +153,7 @@ sh verify-offline.sh
 
 **MANIFEST 관련 참고**: `MANIFEST.sha256`는 텍스트 파일(`.java`/`.md`/
 `.sh` 등)의 줄바꿈(LF/CRLF)에 영향을 받는다. git의 `core.autocrlf` 설정이
-반입 환경에서 다르면(예: 이 candidate를 만든 개발 환경과 폐쇄망 Windows
+반입 환경에서 다르면(예: 이 저장소를 준비한 개발 환경과 폐쇄망 Windows
 환경의 git 설정 차이) MANIFEST 비교에서 **텍스트 파일만** mismatch로
 표시될 수 있다 -- 이는 실제 내용 손상이 아니라 줄바꿈 정규화 차이일
 가능성이 높다(빌드/실행에는 영향 없음, javac/node/python 전부 CRLF와 LF를
@@ -199,20 +198,21 @@ LEGACY_ONLY_NOT_ACCEPTED_PATH_CONCERN`, `README-OFFLINE.md` 항목 8 참고) BUT
 
 ## 10. 실패 시 rollback 방법
 
-- 이 candidate 디렉터리 전체를 지우고 2번에서 만든 backup으로 복원한다.
+- 이 반입 디렉터리 전체를 지우고 2번에서 만든 backup으로 복원한다.
 - 또는 git 저장소라면: `git log --oneline`으로 이전 커밋 확인 후
-  `git checkout <이전 커밋 SHA>`로 되돌린다(이 저장소는 각 라운드가
-  개별 커밋이라 세밀한 rollback이 가능하다).
-- `WebContent/assets/css/contents.css`(실제 운영 파일)는 이 candidate가
+  `git checkout <이전 커밋 SHA>`로 되돌린다(이 저장소는 각 commit이
+  개별적으로 구분되어 세밀한 rollback이 가능하다).
+- `WebContent/assets/css/contents.css`(실제 운영 파일)는 이 저장소가
   건드리지 않으므로 별도 rollback이 필요 없다(4번 참고).
 
 ## 참고 문서
 
 - `analysis/contents-css-integration-audit.md` -- CSS 전역 로딩/base
-  widget class 조사
-- `analysis/target-class-state-policy-audit.md` -- 이번 라운드 class/
-  state policy 리팩터링 상세
-- `analysis/freeze-vs-candidate-function-diff.md` -- 전체 함수 단위
-  diff 이력(모든 라운드)
-- `README-OFFLINE.md`, `OFFLINE-IMPORT-MANIFEST.md` -- 이 candidate
-  저장소 자체의 폐쇄망 반입 원칙(기존 문서, freeze 시점부터 존재)
+  widget class 조사(historical audit record)
+- `analysis/target-class-state-policy-audit.md` -- class/state policy
+  관련 historical audit record
+- `analysis/freeze-vs-candidate-function-diff.md` -- 과거 freeze 시점
+  기준 함수 단위 diff 이력(historical record)
+- `README-OFFLINE.md`, `OFFLINE-IMPORT-MANIFEST.md` -- 이 저장소 자체의
+  폐쇄망 반입 원칙(`README-OFFLINE.md`는 현재 product documentation,
+  `OFFLINE-IMPORT-MANIFEST.md`는 과거 freeze 시점의 historical evidence)

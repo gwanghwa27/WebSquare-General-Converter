@@ -1,20 +1,20 @@
-# XPlatform → WebSquare Converter
-## 폐쇄망 반입용 Source Project 설치·빌드·실행·검증 가이드
+# WebSquare General Converter
+## 폐쇄망 반입/오프라인 실행용 Source Project 설치·빌드·실행·검증 가이드
 
-프로젝트명: `xplatform-to-websquare-offline-import`
+프로젝트명: `WebSquare General Converter`
 대상 환경: 인터넷이 없는 폐쇄망 PC (Windows / Linux)
 
 ---
 
 ## 1. 문서 목적
 
-이 문서는 `xplatform-to-websquare-offline-import` 프로젝트를 폐쇄망 PC로 반입한 뒤, 별도의
+이 문서는 WebSquare General Converter 프로젝트를 폐쇄망 PC로 반입한 뒤, 별도의
 인터넷 연결이나 Maven/Gradle 없이 소스를 열고, 빌드하고, sample project를 변환하고, 포함된
 offline verifier로 결과를 검증하는 전체 절차를 설명한다.
 
 ## 2. 프로젝트 개요
 
-이 프로젝트는 XPlatform XFDL 화면을 WebSquare 5.0.5 XML/JS로 변환하는 Java 8 converter의
+이 프로젝트는 XPlatform XFDL 화면을 WebSquare XML로 변환하는 Java 8 converter의
 **소스 프로젝트**다. 배포용 컴파일 산출물(binary)이 아니라, 폐쇄망에서 직접 컴파일하고 실행할 수
 있는 **source project**로 구성되어 있다.
 
@@ -142,15 +142,13 @@ raw blob 바이트를 그대로 보존한다는 뜻이다. `text eol=crlf`만으
 contract이며, `.sh`는 그 gate를 재구현하지 않고 다만 대신 못 통과시킬 뿐이다(cmd.exe/cygpath를 이
 `.sh`가 찾지 못하면 exact-JDK gate를 통과한 것으로 절대 간주하지 않고 명시적으로 실패한다).
 
-## 3. 반입 프로젝트와 Phase4 baseline 관계
+## 3. 과거 freeze/baseline 기록과의 관계 (참고용 pointer)
 
-- **Phase4 original ZIP baseline**은 이 프로젝트 작업의 원본이며 **IMMUTABLE/FROZEN**으로 취급된다 —
-  이번 반입 프로젝트 생성 과정에서도 전혀 수정하지 않았다.
-- 이 프로젝트의 소스는 Phase4 baseline에서 파생된 **Phase4-derived working candidate**
-  (`work/phase4-working/...`)를 COPY한 것이며, 그 working candidate에 누적된 **Production 수정 8건**을
-  모두 포함한다(항목 12 참고).
-- 즉 이 프로젝트 = Phase4 baseline + 검증된 8건의 최소 수정. baseline 자체를 바꾼 것이 아니라, 그 위에
-  파생된 상태를 그대로 반입용으로 옮긴 것이다.
+이 저장소 자체가 현재 WebSquare General Converter의 독립 source project다. 이 저장소가 파생되어
+나온 과거 freeze/baseline 이력(예: Phase4 계열 baseline과 그로부터 파생됐던 이전 candidate 상태)은
+이 가이드의 현재 authority가 아니며, 그 historical fact 자체는 `OFFLINE-IMPORT-MANIFEST.md`(해당
+freeze 시점의 historical evidence)와 `FROZEN-DO-NOT-MODIFY.md`(과거 frozen snapshot의 historical
+policy record)에 그대로 보존되어 있다.
 
 ## 4. 필수 환경
 
@@ -167,10 +165,11 @@ contract이며, `.sh`는 그 gate를 재구현하지 않고 다만 대신 못 �
 ## 5. 폴더 구조 설명
 
 ```
-xplatform-to-websquare-offline-import/
+<project-root>/
 ├─ src/main/java/...          Production Java source 전체 (76개 파일)
 ├─ sample-phase3-project/     135 XFDL + 14 XJS 입력 샘플
-├─ sample-phase3-output/      최신 working candidate 기준 reference 출력 (136개 XML, 덮어쓰지 않음)
+├─ sample-phase3-output/      보존된 참고용 reference 출력 (136개 XML, accepted runtime/output
+│                              authority 아님, 덮어쓰지 않음)
 ├─ audit/                     Python 기반 audit/verifier 스크립트 + Phase1 fixture
 ├─ tools/verifier-src/        Java 기반 Phase1ShaVerifier (Production source와 물리적으로 분리)
 ├─ docs/                      핵심 문서 4종 + 본 가이드(md/docx/pdf)
@@ -196,8 +195,8 @@ xplatform-to-websquare-offline-import/
 
 ### 6.1 IntelliJ IDEA 사용
 
-1. **프로젝트 Open**: IntelliJ에서 `File → Open`으로 `xplatform-to-websquare-offline-import` 폴더
-   자체를 연다(포함된 `.idea/` metadata를 인식한다).
+1. **프로젝트 Open**: IntelliJ에서 `File → Open`으로 이 저장소의 루트 폴더 자체를 연다(포함된
+   `.idea/` metadata를 인식한다).
 2. **Project SDK 설정**: `File → Project Structure → Project → SDK`에서 폐쇄망 PC에 설치된
    **JDK 1.8.0_111**을 선택(없으면 `Add SDK`로 등록).
 3. **Language Level 확인**: 같은 화면에서 Language level이 **8**로 되어 있는지 확인
@@ -209,8 +208,8 @@ xplatform-to-websquare-offline-import/
 ### 6.2 Eclipse 사용
 
 1. **Import**: `File → Import → Existing Projects into Workspace`(또는 폴더 구조에 따라
-   `File → Import → Projects from Folder or Archive`)로 `xplatform-to-websquare-offline-import`
-   폴더를 선택한다(포함된 `.project`/`.classpath`를 인식한다).
+   `File → Import → Projects from Folder or Archive`)로 이 저장소의 루트 폴더를 선택한다(포함된
+   `.project`/`.classpath`를 인식한다).
 2. **Installed JRE 등록**: `Window → Preferences → Java → Installed JREs`에서 폐쇄망 PC의
    **JDK 1.8.0_111**을 추가 등록한다.
 3. **JavaSE-1.8 Execution Environment 연결**: 같은 Preferences 화면의
@@ -463,7 +462,7 @@ verifier는 legacy 변환 출력에 의존하는 절차이며, 현재 `verify-of
 - MariaDB
 - license
 
-이 프로젝트는 XFDL → WebSquare XML/JS **변환기 소스**만 제공한다. 생성된 XML을 실제 WebSquare 환경에
+이 프로젝트는 XFDL → WebSquare XML **변환기 소스**만 제공한다. 생성된 XML을 실제 WebSquare 환경에
 배포하려면, 해당 기관 폐쇄망의 WebSquare 환경에 설치된 **wpack 컴파일 도구와 배포 절차**를 별도로
 따라야 한다(이 프로젝트가 그 절차를 대신하지 않는다).
 

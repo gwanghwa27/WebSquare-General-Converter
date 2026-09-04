@@ -1,5 +1,5 @@
-# XPlatform → WebSquare Converter
-## 폐쇄망 반입용 Source Project
+# WebSquare General Converter
+## 폐쇄망 반입/오프라인 실행용 Source Project
 
 상세 설치/실행/검증 방법:
 
@@ -20,10 +20,10 @@ example-runtime-profile.txt`).
 
 ## 1. 프로젝트 목적
 
-Phase4-derived working candidate(누적 Production 수정 8건 포함)를 인터넷 없는 폐쇄망 PC로 반입해,
-Maven/Gradle/외부 JAR 없이 JDK 1.8.0_111만으로 compile/convert/verify할 수 있게 만든 독립 소스
-프로젝트다. Phase4 original ZIP baseline은 IMMUTABLE/FROZEN이며 이 프로젝트는 그 위에 파생된
-working candidate를 COPY한 것이다.
+WebSquare General Converter는 raw XFDL을 입력으로 받아 WebSquare XML을 생성하는 독립(standalone)
+converter다. 이 문서는 그 소스 전체를 인터넷 없는 폐쇄망 PC로 반입해, Maven/Gradle/외부 JAR 없이
+JDK 1.8.0_111만으로 compile/convert/verify할 수 있도록 안내한다. 전체 아키텍처 개요와 accepted
+pipeline 설명은 루트 `README.md`를 참고한다.
 
 ## 2. 요구 환경
 
@@ -173,15 +173,23 @@ exact target JDK 짝이 로컬에 인증 가능한 상태로 존재하고 필요
 계약 한계(Defect 2/GRID-3/CheckBox/auto page-init)를 무효화하지 않으며, GitHub Push/공개 배포가
 완료됐다는 뜻도 아니다(원격 게시는 여전히 사용자 전용 작업이다).
 
-상세는 `docs/FINAL-VERIFICATION-REPORT.md`, `docs/followup-checkBox-ready-jdk-phase1-final.md` 참고.
+이 인증에 이르기까지의 과거 조사 기록(historical evidence)은 `docs/FINAL-VERIFICATION-REPORT.md`,
+`docs/followup-checkBox-ready-jdk-phase1-final.md`에 남아 있다 -- 이 기록 자체는 현재 verification
+authority가 아니다. 현재 architecture와 accepted behavior는 Reviewer가 승인한 architecture
+standing과 accepted current source/contract를 기준으로 판단하며, 이 문서(항목 7 포함)는 그 승인된
+standing을 사용자에게 보고/설명하는 문서일 뿐 이 문서 자체가 independent architecture authority는
+아니다.
 
 ## 9. WebSquare Runtime 관련 주의사항
 
 - 실제 폐쇄망 WebSquare 서버/Studio/dev pack은 이 프로젝트에 포함되지 않음
 - generated XML 배포 시 해당 환경의 WebSquare wpack 절차가 필요할 수 있음
 
-## 10. immutable Phase4 baseline과 현재 working candidate의 관계
+## 10. 과거 freeze/baseline 기록과의 관계 (참고용 pointer)
 
-Phase4 original ZIP baseline은 절대 수정하지 않는다. 이 반입 프로젝트의 소스는 그 baseline에서
-파생된 Phase4-derived working candidate(`work/phase4-working/...`, 누적 Production 수정 8건 포함)를
-그대로 COPY한 것이며, baseline 자체를 대체하거나 덮어쓰지 않는다.
+이 저장소 자체는 현재 WebSquare General Converter의 standalone source이며, 이 프로젝트 소개의
+중심은 위 항목들이 설명하는 현재 accepted 아키텍처와 사용법이다. 이 저장소가 파생되어 나온 과거
+freeze/baseline 이력(예: Phase4 계열 baseline과 그로부터 파생됐던 이전 candidate 상태)은 이
+문서의 현재 authority가 아니며, 그 historical fact 자체는 `OFFLINE-IMPORT-MANIFEST.md`(해당
+freeze 시점의 historical evidence)와 `FROZEN-DO-NOT-MODIFY.md`(과거 frozen snapshot의 historical
+policy record)에 그대로 보존되어 있다.
