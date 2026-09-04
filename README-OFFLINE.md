@@ -13,10 +13,11 @@ authority는 `verify-standalone.bat`(`verify-offline.bat`/`verify-offline.sh`는
 thin wrapper일 뿐, 별도 검증 로직이 없다). 아래 항목 5의 `convert-sample.*`는 **non-operational legacy
 entrypoint로 disabled**되어 있다 -- 실행하면 즉시 `[CURRENT_PROJECT_CLI_CONFIGURATION_CONTRACT_BLOCKER]`
 메시지와 함께 종료하며 어떤 변환도 수행하지 않는다. 여러 XFDL 파일을 한 번에 변환하려면(Slice 99F)
-`closed-network-import\BATCH-CONVERT.cmd`(또는 `.sh`)를 사용한다 -- 이 entrypoint는 호출자가 명시적으로
-제공한 `inputRoot`/`outputRoot`/runtime profile 파일 세 인자를 요구하며, 암묵적 기본 profile은 여전히
-존재하지 않는다(자세한 내용: `docs/OFFLINE-USER-GUIDE.md` 항목 2-1/항목 9, `closed-network-import\
-example-runtime-profile.txt`).
+저장소 root의 `closed-network-batch-convert.bat`(Slice 100D, thin delegation wrapper) 또는 이를
+통해 위임되는 authoritative 구현 `closed-network-import\BATCH-CONVERT.cmd`(또는 `.sh`)를 사용한다
+-- 두 경로 모두 호출자가 명시적으로 제공한 `inputRoot`/`outputRoot`/runtime profile 파일 세 인자를
+요구하며, 암묵적 기본 profile은 여전히 존재하지 않는다(자세한 내용: `docs/OFFLINE-USER-GUIDE.md`
+항목 2-1/항목 9, `closed-network-import\example-runtime-profile.txt`).
 
 ## 1. 프로젝트 목적
 
@@ -120,7 +121,9 @@ IMPLEMENTED_AND_TARGET_JDK_CERTIFIED (Slice 99F 구현 + Slice 99I 인증 -- clo
 BATCH-CONVERT.cmd/.sh, explicit caller-supplied TargetRuntimeProfile file required, no implicit
 default; delegates the exact-JDK gate to verify-standalone.bat rather than duplicating it -- 아래
 Target JDK 인증 근거와 동일하게 정규 entrypoint smoke와 raw committed HEAD smoke 둘 다 PASS로
-확인됨)
+확인됨). Slice 100D에서 저장소 root convenience entrypoint `closed-network-batch-convert.bat`가
+추가됐다 -- 이 wrapper는 위 `BATCH-CONVERT.cmd`로만 그대로 위임하는 thin delegation일 뿐 별도의
+converter나 독립 인증 authority가 아니다.
 
 Phase1 SHA:
 PASS

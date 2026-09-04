@@ -114,9 +114,14 @@ raw XFDL
 항목 2-1).
 
 **여러 파일을 한 번에 변환하려면(Slice 99F)** `closed-network-import\
-BATCH-CONVERT.cmd`(정규 platform)/`.sh`(best-effort bridge)를 쓴다 -- 호출자가
-`inputRoot`/`outputRoot`/runtime profile 파일 세 인자를 명시적으로 제공해야
-하며, exact-JDK 게이트는 `verify-standalone.bat`에 위임한다(자체 재구현 없음).
+BATCH-CONVERT.cmd`(정규 platform, authoritative 구현)/`.sh`(best-effort bridge)를
+쓴다. 저장소 root에는 이를 그대로 위임하는 convenience entrypoint
+`closed-network-batch-convert.bat`(Slice 100D)도 있다 -- 인자 전달/exit code
+반환만 수행하는 thin delegation wrapper일 뿐, 아래 인자 계약이나 실제 변환
+로직은 여전히 `BATCH-CONVERT.cmd`가 authoritative하게 보유한다. 두 경로 모두
+호출자가 `inputRoot`/`outputRoot`/runtime profile 파일 세 인자를 명시적으로
+제공해야 하며, exact-JDK 게이트는 `verify-standalone.bat`에 위임한다(자체
+재구현 없음).
 `inputRoot`/`outputRoot`는 같거나 서로 nested되면 안 되고(real path 기준),
 심볼릭 링크 항목은 확장자/대상과 무관하게 항상 거부하며, junction 등
 Java가 심볼릭 링크로 인식 못 하는 별칭도 root 밖 이탈이든 root 안에서의

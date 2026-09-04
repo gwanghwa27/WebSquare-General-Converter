@@ -68,11 +68,22 @@ verify-offline이 더 이상 그 단계들을 실행하지 않는다 — 항목 
 ## 2-2. 폐쇄망 batch 변환 entrypoint (Slice 99F)
 
 여러 XFDL 파일을 한 번에 변환하려면 `closed-network-import\BATCH-CONVERT.cmd`(**정규 platform**,
-Windows batch)를 쓴다:
+Windows batch, authoritative 구현)를 쓴다:
 
 ```
 closed-network-import\BATCH-CONVERT.cmd inputRoot outputRoot runtimeProfileFile
 ```
+
+저장소 root에는 이를 그대로 위임하는 convenience entrypoint `closed-network-batch-convert.bat`
+(Slice 100D)도 있다:
+
+```
+closed-network-batch-convert.bat inputRoot outputRoot runtimeProfileFile
+```
+
+이 root wrapper는 caller argument vector와 exit code만 그대로 중계하는 thin delegation wrapper일
+뿐이다 -- 새로운 converter나 독립 인증 authority가 아니며, 아래 설명하는 인자 계약/안전 규칙은 모두
+`BATCH-CONVERT.cmd`가 authoritative하게 구현한다(두 경로 모두 최종적으로 동일한 이 구현을 실행한다).
 
 `inputRoot` 아래에서 확장자가 정확히 `.xfdl`인 일반 파일만 real path 기준으로 재귀 탐색한다(결정적
 정렬). **발견된 항목이 심볼릭 링크(`Files.isSymbolicLink`)로 판명되면 확장자/대상 종류(파일인지
@@ -131,8 +142,9 @@ BATCH-CONVERT.cmd`를 비롯한 이 프로젝트의 모든 `*.bat`/`*.cmd`는 �
 `-text`로 선언한다 — Git이 이 파일들의 줄바꿈을 커밋/체크아웃 어느 방향으로도 절대 변환하지 않고
 raw blob 바이트를 그대로 보존한다는 뜻이다. `text eol=crlf`만으로는 실제 blob 저장 바이트가 바뀌지
 않는다는 사실이 외부 실험으로 확인됐으므로(텍스트 파일은 저장 시 항상 LF로 정규화됨) 반드시
-`-text`가 필요하다(Slice 99F Correction 6). `-text` 선언 자체는 값을 강제하지 않으므로, 이 일곱 개
-스크립트의 실제 커밋 대상 바이트를 CRLF로 직접 구체화(materialize)해 두었다 — 즉 저장소가 소유하는
+`-text`가 필요하다(Slice 99F Correction 6). `-text` 선언 자체는 값을 강제하지 않으므로, 이 여덟 개
+governed 스크립트(Slice 100D에서 `closed-network-batch-convert.bat` 추가로 7개에서 8개로 갱신)의
+실제 커밋 대상 바이트를 CRLF로 직접 구체화(materialize)해 두었다 — 즉 저장소가 소유하는
 계약은 `-text` 선언과 실제 CRLF 커밋 바이트 두 가지를 모두 포함한다. 이 계약 덕분에 exact-JDK
 게이트는 개발자의 `core.autocrlf` 설정이나 raw Git blob을 어떻게 꺼내 실행하는지와 무관하게 항상
 정확히 작동한다(별도의 checkout 정규화나 수동 CRLF 변환을 요구하지 않음).
@@ -176,6 +188,7 @@ policy record)에 그대로 보존되어 있다.
 ├─ .idea/                     IntelliJ 최소 project metadata (선택)
 ├─ .project / .classpath / .settings/   Eclipse 최소 project metadata (선택)
 ├─ build.bat / build.sh
+├─ closed-network-batch-convert.bat   (root convenience entrypoint, BATCH-CONVERT.cmd로 위임)
 ├─ convert-sample.bat / convert-sample.sh   (non-operational legacy entrypoint, 비운영 -- 항목 9 참고)
 ├─ verify-offline.bat / verify-offline.sh
 ├─ README-OFFLINE.md

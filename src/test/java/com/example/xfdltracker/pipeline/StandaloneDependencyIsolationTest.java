@@ -92,6 +92,7 @@ public class StandaloneDependencyIsolationTest {
         testAuthoritativeExactJdkGateScriptsAreCoveredByNonTextPolicy();
         testGovernedWindowsScriptsHaveCrlfOnlyRawBytes();
         testGovernedWindowsScriptInventoryHasNoUndeclaredAddition();
+        testRootBatchWrapperIsThinDelegationBoundaryOnly();
         testAcceptedPathHasNoTabRuntimeScriptGeneratorReference();
         testAcceptedTabControlOutputContainsNoLegacyGetScopeOrRuntimeScript();
         testAcceptedPathHasNoLegacyClassMergeHelperReference();
@@ -1227,12 +1228,13 @@ public class StandaloneDependencyIsolationTest {
     }
 
     /**
-     * Slice 99F Correction 6 -- 7개 governed Windows script의 raw 바이트를 디스크에서 직접 읽어
-     * CRLF만 있는지 검증한다({@code core.autocrlf}/git 명령을 전혀 사용하지 않음, {@code
-     * .gitattributes} 존재만으로 통과시키지 않고 실제 파일 바이트 자체를 확인한다).
+     * Slice 99F Correction 6, Slice 100D(root wrapper 추가로 8개로 갱신) -- governed Windows
+     * script의 raw 바이트를 디스크에서 직접 읽어 CRLF만 있는지 검증한다({@code core.autocrlf}/
+     * git 명령을 전혀 사용하지 않음, 실제 파일 바이트 자체만 확인한다).
      */
     private static final String[] GOVERNED_WINDOWS_SCRIPTS = {
             "build.bat",
+            "closed-network-batch-convert.bat",
             "closed-network-import/BATCH-CONVERT.cmd",
             "closed-network-import/BUILD-AND-VERIFY.cmd",
             "convert-sample.bat",
@@ -1271,7 +1273,7 @@ public class StandaloneDependencyIsolationTest {
         }
     }
 
-    /** governed 7-경로 목록 밖에 새 {@code *.bat}/{@code *.cmd}가 조용히 추가되지 않았는지 확인한다. */
+    /** governed 8-경로 목록 밖에 새 {@code *.bat}/{@code *.cmd}가 조용히 추가되지 않았는지 확인한다. */
     private static void testGovernedWindowsScriptInventoryHasNoUndeclaredAddition() throws Exception {
         File root = repositoryRoot();
         List<String> allScripts = new ArrayList<String>();
@@ -1282,7 +1284,87 @@ public class StandaloneDependencyIsolationTest {
                 continue;
             }
             assertTrue("crlf-invariant-inventory: " + relativePath + " is covered by the governed "
-                            + "seven-script byte-policy check", governed.contains(relativePath));
+                            + "eight-script byte-policy check", governed.contains(relativePath));
+        }
+    }
+
+    /**
+     * Slice 100D Correction -- root wrapper(closed-network-batch-convert.bat)가 thin delegation
+     * boundary를 지키는지 확인한다: BATCH-CONVERT.cmd 위임/exit code 반환 외의 chcp 등
+     * execution-state mutation이 operational line에 없는지 fail-closed로 검증한다.
+     */
+    private static void testRootBatchWrapperIsThinDelegationBoundaryOnly() throws Exception {
+        File root = repositoryRoot();
+        File wrapper = new File(root, "closed-network-batch-convert.bat");
+        assertTrue("wrapper-boundary: closed-network-batch-convert.bat exists at repository root",
+                wrapper.isFile());
+        if (!wrapper.isFile()) {
+            return;
+        }
+        String content = new String(Files.readAllBytes(wrapper.toPath()), StandardCharsets.UTF_8);
+
+        assertTrue("wrapper-boundary: delegates to exactly closed-network-import\\BATCH-CONVERT.cmd",
+                content.contains("closed-network-import\\BATCH-CONVERT.cmd"));
+        assertTrue("wrapper-boundary: forwards the caller argument vector via %*",
+                content.contains("%*"));
+        assertTrue("wrapper-boundary: returns the delegated script's exit code via %errorlevel%",
+                content.contains("%errorlevel%"));
+        assertTrue("wrapper-boundary: must not reference/mutate JAVA_HOME",
+                !content.contains("JAVA_HOME"));
+
+        String[] forbiddenTokens = {
+                "ClosedNetworkBatchCli",
+                "TargetWebSquarePipeline",
+                "javac",
+                "RuntimeCapabilityResolver",
+                "CommonRuntimeCapabilityCatalog",
+                "TargetRuntimeProfile",
+                "XPlatformProjectConverter",
+                "WebSquareGenerator",
+                "XfdlToWebSquare"
+        };
+        for (String token : forbiddenTokens) {
+            assertTrue("wrapper-boundary: closed-network-batch-convert.bat must not itself reference \""
+                            + token + "\" (thin delegation only, no reimplementation)",
+                    !content.contains(token));
+        }
+
+        List<String> operationalLines = new ArrayList<String>();
+        for (String rawLine : content.split("\r\n|\n", -1)) {
+            String line = rawLine.trim();
+            String lower = line.toLowerCase(java.util.Locale.ROOT);
+            boolean isCommentOrBlank = line.length() == 0 || lower.startsWith("rem ") || lower.equals("rem")
+                    || line.startsWith("::");
+            if (isCommentOrBlank) {
+                continue;
+            }
+            operationalLines.add(line);
+        }
+        assertTrue("wrapper-boundary: exactly 3 operational (non-comment/blank) lines expected "
+                        + "(@echo off / delegation call / exit propagation), found "
+                        + operationalLines.size() + ": " + operationalLines,
+                operationalLines.size() == 3);
+        if (operationalLines.size() == 3) {
+            assertTrue("wrapper-boundary: first operational line is exactly \"@echo off\"",
+                    operationalLines.get(0).equalsIgnoreCase("@echo off"));
+            assertTrue("wrapper-boundary: second operational line calls the delegation target with %*",
+                    operationalLines.get(1).toLowerCase(java.util.Locale.ROOT).startsWith("call ")
+                            && operationalLines.get(1).contains("BATCH-CONVERT.cmd")
+                            && operationalLines.get(1).endsWith("%*"));
+            assertTrue("wrapper-boundary: third operational line is exactly \"exit /b %errorlevel%\"",
+                    operationalLines.get(2).equalsIgnoreCase("exit /b %errorlevel%"));
+        }
+
+        String[] forbiddenLeadingCommands = {
+                "chcp", "setlocal", "endlocal", "set", "cd", "chdir", "pushd", "popd", "path", "title"
+        };
+        for (String line : operationalLines) {
+            String firstToken = line.split("\\s+", 2)[0].toLowerCase(java.util.Locale.ROOT);
+            for (String forbidden : forbiddenLeadingCommands) {
+                assertTrue("wrapper-boundary: operational line must not perform execution-state "
+                                + "mutation command \"" + forbidden + "\": \"" + line + "\"",
+                        !firstToken.equals(forbidden));
+            }
         }
     }
 

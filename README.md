@@ -114,13 +114,22 @@ fail-closed된다(정상 동작).
 
 ## 10. Closed-Network Conversion
 
-현재 operational entrypoint는 다음이다.
+현재 operational entrypoint는 두 가지이며, 역할이 명확히 나뉜다.
+
+- **root convenience entrypoint**: `closed-network-batch-convert.bat` — 저장소 root에서 바로
+  실행하는 thin delegation wrapper다. caller argument vector(`%*`)를 그대로 아래 delegated
+  구현에 전달하고, 그 exit code를 그대로 반환할 뿐이다. JDK 게이트/변환/runtime profile 해석
+  로직을 스스로 구현하지 않는다 — 새로운 converter나 독립 인증 authority가 아니다.
+- **delegated authoritative batch implementation**: `closed-network-import\BATCH-CONVERT.cmd` —
+  exact-JDK gate 위임(`verify-standalone.bat` 경유)과 실제 batch 변환 로직을 보유한 authoritative
+  구현이다. root wrapper를 거치든 직접 실행하든 동일한 이 구현이 실행된다.
 
 ```
-closed-network-import\BATCH-CONVERT.cmd inputRoot outputRoot runtimeProfileFile
+closed-network-batch-convert.bat inputRoot outputRoot runtimeProfileFile
 ```
 
-인자 순서는 `inputRoot` → `outputRoot` → `runtimeProfileFile`이다. runtime profile은 호출자가
+인자 순서는 `inputRoot` → `outputRoot` → `runtimeProfileFile`이다. `runtimeProfileFile`은 여전히
+required이며, root wrapper는 어떤 implicit default도 도입하지 않는다. runtime profile은 호출자가
 명시적으로 제공해야 하며, 다음은 명시적으로 금지된다.
 
 - implicit default runtime profile
@@ -130,6 +139,8 @@ closed-network-import\BATCH-CONVERT.cmd inputRoot outputRoot runtimeProfileFile
 ## 11. Batch Safety
 
 `closed-network-import\BATCH-CONVERT.cmd`(및 그 하위 batch 구성요소)는 다음 안전 계약을 지킨다.
+root convenience entrypoint(`closed-network-batch-convert.bat`)는 이 계약을 스스로 재구현하지
+않고 delegated 구현으로 그대로 전달할 뿐이다.
 
 - recursive exact lowercase `.xfdl` discovery(정확히 `.xfdl` 확장자만 real path 기준 재귀 탐색)
 - deterministic relative ordering
@@ -139,8 +150,3 @@ closed-network-import\BATCH-CONVERT.cmd inputRoot outputRoot runtimeProfileFile
 - 여러 입력 중 첫 conversion 실패 시 즉시 중단(stop)
 - 그 이전에 이미 끝난 입력의 성공 결과(previous success)는 그대로 보존
 - 실패한 파일에 대한 partial XML은 발행하지 않는다
-
-**주의**: 이 Slice(100C) 시점에는 저장소 root에 별도의 thin delegation wrapper(예:
-`closed-network-batch-convert.bat`)가 **아직 존재하지 않는다**. 위 `BATCH-CONVERT.cmd`가 현재
-유일한 실제 operational closed-network entrypoint이며, 이 문서는 아직 존재하지 않는 root-level
-wrapper를 이미 사용 가능한 것처럼 기술하지 않는다.
