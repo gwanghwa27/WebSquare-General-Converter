@@ -89,7 +89,7 @@ public class StandaloneDependencyIsolationTest {
         testProjectOwnedJavaCommentContentLinesHaveKoreanContext();
         testProjectOwnedScriptCommentContentLinesHaveKoreanContext();
         testGitAttributesDeclaresNonTextPolicyForWindowsScripts();
-        testAuthoritativeExactJdkGateScriptsAreCoveredByNonTextPolicy();
+        testAuthoritativeJdkFamilyGateScriptsAreCoveredByNonTextPolicy();
         testGovernedWindowsScriptsHaveCrlfOnlyRawBytes();
         testGovernedWindowsScriptInventoryHasNoUndeclaredAddition();
         testRootBatchWrapperIsThinDelegationBoundaryOnly();
@@ -575,7 +575,8 @@ public class StandaloneDependencyIsolationTest {
 
     /**
      * VERIFY_OFFLINE_BAT_IS_THIN_DELEGATOR = TRUE: verify-offline.bat는 verify-standalone.bat만
-     * 호출해야 하며 compile/test/JDK-gate 로직을 재구현하면 안 된다.
+     * 호출해야 하며 compile/test/JDK family gate 로직을 재구현하면 안 된다(Slice 100E-I family
+     * matcher 도입 이후에도 동일 경계를 fail-closed로 재확인한다).
      */
     private static void testVerifyOfflineBatIsThinDelegatorOnly() throws Exception {
         File root = repositoryRoot();
@@ -585,8 +586,24 @@ public class StandaloneDependencyIsolationTest {
                 content.contains("verify-standalone.bat"));
         assertTrue("verify-offline.bat: does not reimplement javac compilation itself",
                 !content.contains("javac -encoding"));
-        assertTrue("verify-offline.bat: does not reimplement the exact-JDK findstr/token gate itself",
-                !content.contains("TARGET_JDK_TOKEN"));
+
+        String[] familyGateImplementationTokens = {
+                "TARGET_JDK_FAMILY",
+                "JAVA_FAMILY_MATCH",
+                "JAVAC_FAMILY_MATCH",
+                "BOTH_FAMILY_MATCH",
+                "JAVA_UPDATE_STRIPPED",
+                "JAVAC_UPDATE_STRIPPED",
+                "JAVA_TOKEN",
+                "JAVAC_TOKEN",
+                "java -version",
+                "javac -version"
+        };
+        for (String token : familyGateImplementationTokens) {
+            assertTrue("verify-offline.bat: does not reimplement the JDK 1.8.0 family gate itself "
+                            + "(must not contain \"" + token + "\")",
+                    !content.contains(token));
+        }
     }
 
     /**
@@ -1201,11 +1218,11 @@ public class StandaloneDependencyIsolationTest {
     }
 
     /**
-     * exact-JDK 게이트 경로(verify-standalone.bat, closed-network-import\BATCH-CONVERT.cmd)가
+     * JDK 1.8.0 family 게이트 경로(verify-standalone.bat, closed-network-import\BATCH-CONVERT.cmd)가
      * 실제로 그 non-text 정책이 적용되는 확장자에 해당하는지 개별적으로 다시 확인한다(패턴이
      * 좁혀지거나 파일이 재배치되어도 이 핵심 두 파일이 커버에서 빠지면 실패해야 한다).
      */
-    private static void testAuthoritativeExactJdkGateScriptsAreCoveredByNonTextPolicy() throws Exception {
+    private static void testAuthoritativeJdkFamilyGateScriptsAreCoveredByNonTextPolicy() throws Exception {
         File root = repositoryRoot();
         File attrFile = new File(root, ".gitattributes");
         assertTrue("gitattributes-coverage: .gitattributes exists", attrFile.isFile());

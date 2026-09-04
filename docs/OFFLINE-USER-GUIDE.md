@@ -57,11 +57,12 @@ raw XFDL
 - Runtime Option C는 **requirements-only**다 — runtime capability 요구사항을 검증만 하며, 어떤
   runtime support 리소스도 발행(emit)하지 않는다.
 - 사용 불가능한 runtime capability 요구사항은 **fail-closed**한다(예외 발생, 부분 발행 없음).
-- exact target JDK는 여전히 **1.8.0_111**이다. 이 프로젝트의 현재 개발/검증 JDK가 1.8.0_111과 정확히
-  일치하기 전까지 target-JDK 최종 검증 완료를 주장하지 않는다.
+- required target JDK version family는 **1.8.0**이다(exact update 버전 고정 없음, 예: `1.8.0_111`/
+  `1.8.0_503`). 이 프로젝트의 현재 개발/검증 JDK가 이 family에 속하지 않으면 target-JDK 검증
+  완료를 주장하지 않는다.
 
 **standalone 검증 authority**: `verify-standalone.bat`(Windows). 항목 10의 `verify-offline.*`는 이제
-`verify-standalone.bat`에 위임하는 thin wrapper로, exact-JDK gate를 포함해 동일한 검증 결과를
+`verify-standalone.bat`에 위임하는 thin wrapper로, JDK 1.8.0 family gate를 포함해 동일한 검증 결과를
 낸다(legacy `XPlatformProjectConverter`/Phase1 SHA verifier 단계는 항목 10 표에 여전히 기술되어 있지만
 verify-offline이 더 이상 그 단계들을 실행하지 않는다 — 항목 10 안내를 참고).
 
@@ -126,7 +127,7 @@ CommonRuntimeCapabilityCatalog.createSeeded()` 기준), `#`으로 시작하는 �
 하나라도 있으면 변환을 시작하기 전에 명시적으로 fail-closed한다 — 이름으로 capability를 추론하지
 않으며, 모든 capability가 사용 가능하다고 가정하는 암묵적 기본 profile도 없다.
 
-이 entrypoint는 exact-JDK 게이트/compile/regression 로직을 자체 구현하지 않고
+이 entrypoint는 JDK 1.8.0 family 게이트/compile/regression 로직을 자체 구현하지 않고
 `verify-standalone.bat`에 그대로 위임한다 — 그 게이트를 통과하지 못하면 batch 변환 자체를 시작하지
 않는다(`BATCH_CONVERSION_STARTS_BEFORE_TARGET_JDK_GATE = FALSE`). 여러 입력 중 하나라도 실패하면
 (예: 이미 종결된 CheckBox/GRID-3/Defect 2 계약 한계에 해당하는 입력) 그 시점에서 즉시 멈추고
@@ -145,14 +146,14 @@ raw blob 바이트를 그대로 보존한다는 뜻이다. `text eol=crlf`만으
 `-text`가 필요하다(Slice 99F Correction 6). `-text` 선언 자체는 값을 강제하지 않으므로, 이 여덟 개
 governed 스크립트(Slice 100D에서 `closed-network-batch-convert.bat` 추가로 7개에서 8개로 갱신)의
 실제 커밋 대상 바이트를 CRLF로 직접 구체화(materialize)해 두었다 — 즉 저장소가 소유하는
-계약은 `-text` 선언과 실제 CRLF 커밋 바이트 두 가지를 모두 포함한다. 이 계약 덕분에 exact-JDK
-게이트는 개발자의 `core.autocrlf` 설정이나 raw Git blob을 어떻게 꺼내 실행하는지와 무관하게 항상
+계약은 `-text` 선언과 실제 CRLF 커밋 바이트 두 가지를 모두 포함한다. 이 계약 덕분에 JDK 1.8.0
+family 게이트는 개발자의 `core.autocrlf` 설정이나 raw Git blob을 어떻게 꺼내 실행하는지와 무관하게 항상
 정확히 작동한다(별도의 checkout 정규화나 수동 CRLF 변환을 요구하지 않음).
 
 `closed-network-import\BATCH-CONVERT.sh`도 있지만 이는 cmd.exe를 거쳐 위 Windows batch를 그대로
 호출하는 best-effort 브리지일 뿐이다 — Windows batch(`.cmd`)가 이 프로젝트의 정규 platform
 contract이며, `.sh`는 그 gate를 재구현하지 않고 다만 대신 못 통과시킬 뿐이다(cmd.exe/cygpath를 이
-`.sh`가 찾지 못하면 exact-JDK gate를 통과한 것으로 절대 간주하지 않고 명시적으로 실패한다).
+`.sh`가 찾지 못하면 JDK 1.8.0 family gate를 통과한 것으로 절대 간주하지 않고 명시적으로 실패한다).
 
 ## 3. 과거 freeze/baseline 기록과의 관계 (참고용 pointer)
 
@@ -167,7 +168,7 @@ policy record)에 그대로 보존되어 있다.
 | 항목 | 요구사항 |
 |---|---|
 | OS | Windows 또는 Linux/Unix (둘 다 지원 — `build.bat`/`build.sh` 등 스크립트 쌍 제공) |
-| JDK | **1.8.0_111** (exact) |
+| JDK | **1.8.0 family**(exact update 버전 고정 없음 — 예: `1.8.0_111`, `1.8.0_503`) |
 | 문자 인코딩 | UTF-8 |
 | Maven | 불필요 |
 | Gradle | 불필요 |
@@ -211,7 +212,7 @@ policy record)에 그대로 보존되어 있다.
 1. **프로젝트 Open**: IntelliJ에서 `File → Open`으로 이 저장소의 루트 폴더 자체를 연다(포함된
    `.idea/` metadata를 인식한다).
 2. **Project SDK 설정**: `File → Project Structure → Project → SDK`에서 폐쇄망 PC에 설치된
-   **JDK 1.8.0_111**을 선택(없으면 `Add SDK`로 등록).
+   **JDK 1.8.0 family**(예: `1.8.0_111`, `1.8.0_503`)를 선택(없으면 `Add SDK`로 등록).
 3. **Language Level 확인**: 같은 화면에서 Language level이 **8**로 되어 있는지 확인
    (`.idea/misc.xml`에 `JDK_1_8`로 이미 지정되어 있음).
 4. **Source root 확인**: `src/main/java`가 소스 루트로 인식되는지 확인(`.iml`에 이미 지정됨).
@@ -224,10 +225,10 @@ policy record)에 그대로 보존되어 있다.
    `File → Import → Projects from Folder or Archive`)로 이 저장소의 루트 폴더를 선택한다(포함된
    `.project`/`.classpath`를 인식한다).
 2. **Installed JRE 등록**: `Window → Preferences → Java → Installed JREs`에서 폐쇄망 PC의
-   **JDK 1.8.0_111**을 추가 등록한다.
+   **JDK 1.8.0 family**(예: `1.8.0_111`, `1.8.0_503`)를 추가 등록한다.
 3. **JavaSE-1.8 Execution Environment 연결**: 같은 Preferences 화면의
    `Installed JREs` 또는 `Execution Environments`에서 **JavaSE-1.8**에 방금 등록한
-   JDK 1.8.0_111을 연결한다(`.classpath`가 `JavaSE-1.8` 컨테이너를 참조하도록 이미 구성되어 있다).
+   JDK를 연결한다(`.classpath`가 `JavaSE-1.8` 컨테이너를 참조하도록 이미 구성되어 있다).
 4. **Compiler compliance 확인**: `Window → Preferences → Java → Compiler`에서
    Compiler compliance level이 **1.8**인지 확인(`.settings/org.eclipse.jdt.core.prefs`에 이미 지정됨).
 5. **source/output folder 확인**: `src/main/java`가 source, `build/classes`가 output으로 지정되어
@@ -241,7 +242,7 @@ policy record)에 그대로 보존되어 있다.
 방법 C(권장, 가장 단순):
 
 ```
-JAVA_HOME을 JDK 1.8.0_111 설치 경로로 설정
+JAVA_HOME을 JDK 1.8.0 family 설치 경로로 설정(예: 1.8.0_111, 1.8.0_503)
 → build.bat (Windows) 또는 ./build.sh (Linux/Unix)
 → (변환) TargetWebSquarePipeline.convert(File, File, TargetPipelineConfig) 직접 호출 -- 항목 2-1 참고
 → verify-offline.bat 또는 ./verify-offline.sh
@@ -266,8 +267,9 @@ Linux/Unix:
 
 두 스크립트 모두 다음을 수행한다:
 - 현재 `JAVA_HOME`/`java`/`javac` 버전 표시
-- 정확히 1.8.0_111이면 `[TARGET_JDK_MATCH]`, 아니면 `[TARGET_JDK_MISMATCH_WARNING]`(빌드 자체는 계속
-  진행 — 이 경고는 실패가 아니며, target JDK 인증으로 승격되지도 않는다. 인증은 항목 10 참고)
+- java/javac 버전 token이 둘 다 JDK 1.8.0 family(exact update 고정 없음)이면 `[TARGET_JDK_MATCH]`,
+  하나라도 아니면 `[TARGET_JDK_MISMATCH_WARNING]`(빌드 자체는 계속 진행 — 이 경고는 실패가 아니며,
+  target JDK 인증으로 승격되지도 않는다. 인증은 항목 10 참고)
 - `src/main/java` 전체를 `build/classes/`로 컴파일(소스 트리 자체에는 `.class`를 생성하지 않음)
 
 ## 9. Sample 변환 방법 -- non-operational legacy entrypoint (비운영, 항목 2-1 참고)
@@ -291,9 +293,9 @@ TargetPipelineConfig)`를 호출자가 자신의 `TargetRuntimeProfile`과 함�
 **주의(Slice 98BH hardening 반영)**: `verify-offline.*`는 이제 `verify-standalone.bat`에 위임하는
 thin wrapper다 — 아래 8단계 표는 이전(legacy) 버전이 실제로 수행하던 단계를 기술한 역사적 설명이며,
 현재 `verify-offline.*`는 더 이상 `convert-sample.*`/Phase1 SHA verifier/reference-output diff를
-실행하지 않는다. 현재 `verify-offline.*`가 실제로 수행하는 것은 exact JDK gate(fail-closed) +
+실행하지 않는다. 현재 `verify-offline.*`가 실제로 수행하는 것은 JDK 1.8.0 family gate(fail-closed) +
 production/test compile + 전체 project-local test suite 실행이며, 이는 `verify-standalone.bat`와
-동일하다(항목 2-1 참고). exact-JDK 실패 시 시각적으로 여전히 명확히 표시된다.
+동일하다(항목 2-1 참고). family gate 실패 시 시각적으로 여전히 명확히 표시된다.
 
 ```
 verify-offline.bat        (Windows)
@@ -304,7 +306,7 @@ verify-offline.bat        (Windows)
 
 | 단계 | 내용 | 의미 |
 |---|---|---|
-| 1 | exact JDK 1.8.0_111 게이트 | **mandatory core gate**. `java`/`javac` 둘 다 정확히 1.8.0_111이어야 PASS. 다른 8u 버전/JDK11/17/21/`--release 8`은 인정하지 않음 |
+| 1 | JDK 1.8.0 family 게이트 | **mandatory core gate**. `java`/`javac` 각각의 버전 token이 독립적으로 `1.8.0` family여야 PASS(둘의 update 번호가 달라도 무방, exact update 고정 없음). JDK11/17/21/`--release 8`은 여전히 인정하지 않음 |
 | 2 | clean compile | `build.bat`/`build.sh` 재실행 |
 | 3 | sample conversion | (역사적 설명, 현재 미실행) `convert-sample.bat`/`.sh` 재실행, 149/149 확인 -- 이 스크립트는 현재 non-operational legacy entrypoint로 disabled됨(항목 9) |
 | 4 | 생성된 output XML 개수 | 136개 확인 |
@@ -317,9 +319,9 @@ verify-offline.bat        (Windows)
 `SKIPPED_OPTIONAL_TOOL`로만 표시되며 core verification 전체를 실패로 만들지 않는다** — 1~4, 5(Java
 verifier만), 6이 core이고, 8과 5의 Python 부분은 optional이다.
 
-**exact JDK 1.8.0_111이 없는 PC에서는 1단계가 반드시 FAIL하고 전체 결과가
-`[CORE_VERIFICATION_FAIL]`로 끝난다 — 이는 정상 동작이며 converter defect가 아니다.** 다른 JDK로는
-target-JDK 인증을 받을 수 없다는 원칙을 이 스크립트가 강제하는 것뿐이다.
+**JDK 1.8.0 family(예: `1.8.0_111`, `1.8.0_503`)가 없는 PC에서는 1단계가 반드시 FAIL하고 전체
+결과가 `[CORE_VERIFICATION_FAIL]`로 끝난다 — 이는 정상 동작이며 converter defect가 아니다.** 이
+family 밖의 다른 JDK로는 target-JDK 인증을 받을 수 없다는 원칙을 이 스크립트가 강제하는 것뿐이다.
 
 ## 11. Phase1 SHA 검증
 
@@ -466,6 +468,14 @@ verifier는 legacy 변환 출력에 의존하는 절차이며, 현재 `verify-of
   `CLOSED_NETWORK_IMPORT_TECHNICAL_READINESS = READY`이나, 이는 위 fail-closed 계약 한계들을
   무효화하지 않으며 GitHub Push/공개 배포 완료를 뜻하지도 않는다.
 
+**현재(Slice 100E-I) gate standing**(위 Slice 99I 단락과 구분되는 별도 standing -- 과거 인증
+사실을 현재 mandatory 요구사항으로 재해석하지 않는다): `HISTORICAL_EXACT_JDK_1_8_0_111_CERTIFICATION
+= PASS`(위 단락 그대로 보존), `CURRENT_REQUIRED_JDK_VERSION_FAMILY = 1.8.0`,
+`CURRENT_EXACT_UPDATE_PINNING_REQUIRED = FALSE`. 현재 `verify-standalone.bat`는 java/javac 버전
+token이 각각 `1.8.0` family(예: `1.8.0_111`, `1.8.0_503`, 서로 다른 update 조합도 허용)에 속하기만
+하면 PASS로 인정하며, 두 실행파일이 같은 설치 경로에서 왔는지 확인하는 filesystem 검사는 하지
+않는다(항목 2-1, `README.md` 항목 8 참고).
+
 ## 14. WebSquare 배포 관련 주의사항
 
 이 프로젝트에는 다음이 **포함되지 않는다**:
@@ -483,15 +493,15 @@ verifier는 legacy 변환 출력에 의존하는 절차이며, 현재 `verify-of
 
 | 증상 | 원인/조치 |
 |---|---|
-| `JAVA_HOME` 미설정 | `java`/`javac`가 PATH에 없으면 `build.bat`/`build.sh`가 즉시 `[FAIL]`로 종료. JDK 1.8.0_111의 `bin/`을 PATH에 추가하거나 `JAVA_HOME`을 설정 |
-| java/javac 버전 불일치 | build helper(`build.bat`/`build.sh`)는 `[TARGET_JDK_MISMATCH_WARNING]`만 표시하고 빌드는 계속 진행한다(경고, 실패 아님). 표준 검증 authority(`verify-standalone.bat`, `verify-offline.*`는 위임)는 동일 불일치를 `[TARGET_JDK_MISMATCH_FAIL]`로 fail-closed 처리한다(검증 실패) — exact 1.8.0_111만 인정 |
+| `JAVA_HOME` 미설정 | `java`/`javac`가 PATH에 없으면 `build.bat`/`build.sh`가 즉시 `[FAIL]`로 종료. JDK 1.8.0 family(예: `1.8.0_111`, `1.8.0_503`)의 `bin/`을 PATH에 추가하거나 `JAVA_HOME`을 설정 |
+| java/javac 버전 불일치 | build helper(`build.bat`/`build.sh`)는 `[TARGET_JDK_MISMATCH_WARNING]`만 표시하고 빌드는 계속 진행한다(경고, 실패 아님). 표준 검증 authority(`verify-standalone.bat`, `verify-offline.*`는 위임)는 동일 불일치를 `[TARGET_JDK_MISMATCH_FAIL]`로 fail-closed 처리한다(검증 실패) — java/javac 각각 JDK 1.8.0 family(exact update 고정 없음)만 인정 |
 | JDK가 아닌 JRE만 등록된 경우 | `javac`가 없으므로 컴파일 자체가 불가. JRE가 아닌 **JDK**를 설치/등록해야 함 |
-| IntelliJ SDK 설정 오류 | `File → Project Structure → SDKs`에서 JDK 1.8.0_111의 실제 설치 경로를 다시 지정 |
+| IntelliJ SDK 설정 오류 | `File → Project Structure → SDKs`에서 JDK 1.8.0 family의 실제 설치 경로를 다시 지정 |
 | Eclipse Installed JRE 오류 | `Window → Preferences → Java → Installed JREs`에서 등록 상태 확인, `JavaSE-1.8` Execution Environment에 연결되어 있는지 재확인 |
 | Eclipse compiler level 오류 | `Window → Preferences → Java → Compiler`에서 Compliance level을 1.8로 재설정 |
 | UTF-8 문제 | 모든 스크립트가 `-encoding UTF-8`/`chcp 65001`을 명시적으로 사용 — 콘솔 폰트가 한글을 지원하지 않으면 글자가 깨져 보일 뿐 데이터 자체는 정상 |
 | `build/classes` 삭제 후 재빌드 | `build.bat`/`build.sh`는 매 실행 시 `build/`를 삭제 후 재생성하므로 별도 수동 삭제 불필요 |
-| (역사적, 현재 미해당) Python/Node 미설치 시 optional verification skip | `verify-offline.*`는 현재 exact JDK gate + compile + 전체 test suite만 수행하며 Python/Node 관련 optional 단계가 없다(항목 10 참고) |
+| (역사적, 현재 미해당) Python/Node 미설치 시 optional verification skip | `verify-offline.*`는 현재 JDK 1.8.0 family gate + compile + 전체 test suite만 수행하며 Python/Node 관련 optional 단계가 없다(항목 10 참고) |
 | generated output과 reference output 차이 확인 | `verify-offline.*`는 이 비교를 더 이상 자동 수행하지 않는다(legacy 변환 출력에 의존하던 단계이며 제거됨, 항목 10) -- 필요하면 `build/sample-output/`과 `sample-phase3-output/`을 직접 diff 도구로 비교 |
 
 ## 16. 보안/폐쇄망 주의사항
@@ -507,11 +517,12 @@ verifier는 legacy 변환 출력에 의존하는 절차이며, 현재 `verify-of
 ## 17. 최종 운영 체크리스트
 
 ```
-[ ] JDK 1.8.0_111 확인 (java -version / javac -version 둘 다 정확히 일치해야 함)
+[ ] JDK 1.8.0 family 확인 (java -version / javac -version 각각 1.8.0 family여야 함, 예:
+    1.8.0_111/1.8.0_503, 서로 다른 update 조합도 허용)
 [ ] IntelliJ 또는 Eclipse SDK 연결 (또는 Command Line만 사용)
 [ ] build 성공 (build.bat / build.sh)
-[ ] verify-standalone.bat(또는 verify-offline.bat/verify-offline.sh) 실행 -- exact JDK 미보유 시
-    [TARGET_JDK_MISMATCH_FAIL]로 종료하는 것이 정상 동작이다
+[ ] verify-standalone.bat(또는 verify-offline.bat/verify-offline.sh) 실행 -- JDK 1.8.0 family
+    미보유 시 [TARGET_JDK_MISMATCH_FAIL]로 종료하는 것이 정상 동작이다
 [ ] 실제 변환이 필요하면 TargetWebSquarePipeline.convert(File, File, TargetPipelineConfig)를
     자신의 TargetRuntimeProfile과 함께 프로그램적으로 직접 호출한다(항목 2-1) --
     convert-sample.bat/convert-sample.sh는 non-operational legacy entrypoint이며 실행해도

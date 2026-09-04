@@ -47,7 +47,7 @@ echo "entrypoint. TargetWebSquarePipeline is the accepted conversion architectur
 echo "fallback (XPlatformProjectConverter / WebSquareGenerator) is forbidden. For actual batch"
 echo "conversion, use closed-network-import/BATCH-CONVERT.cmd (or .sh) <inputRoot> <outputRoot>"
 echo "<runtimeProfileFile> (Slice 99F) -- it requires an explicit caller-supplied TargetRuntimeProfile"
-echo "file (see closed-network-import/example-runtime-profile.txt) and delegates its exact-JDK gate to"
+echo "file (see closed-network-import/example-runtime-profile.txt) and delegates its JDK 1.8.0 family gate to"
 echo "verify-standalone.bat. For standalone acceptance verification, use verify-standalone.bat (or"
 echo "verify-offline.bat/verify-offline.sh, which delegate to it)."
 FAIL=1

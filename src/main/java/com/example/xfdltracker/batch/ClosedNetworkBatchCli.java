@@ -13,7 +13,7 @@ import java.util.List;
 /**
  * 폐쇄망 batch 변환 CLI: 인자 파싱, root 경계 검증, profile 로딩, input 탐색, output 계획, output
  * preflight(경계/기존 파일 충돌), pipeline 실행, 결과 보고만 순서대로 수행한다. XFDL 해석/target
- * XML 구성/legacy 변환기 호출은 하지 않으며, exact-JDK 게이트는 호출 스크립트가 위임하는 authority다.
+ * XML 구성/legacy 변환기 호출은 하지 않으며, JDK 1.8.0 family 게이트는 호출 스크립트가 위임하는 authority다.
  */
 public final class ClosedNetworkBatchCli {
 

@@ -28,9 +28,10 @@ if errorlevel 1 (
   echo [FAIL] javac not found on PATH.
   exit /b 1
 )
-rem 버전 토큰을 정확히 추출/비교한다(substring 포함 매치 금지 -- "1.8.0_1111"이 "1.8.0_111"로
-rem 오인되면 안 됨). java/javac 둘 다 정확히 일치해야 한다(VERIFY_STANDALONE_JAVA_AND_JAVAC_BOTH_REQUIRED = TRUE).
-set "TARGET_JDK_TOKEN=1.8.0_111"
+rem 버전 토큰의 JDK 1.8.0 family 여부를 anchored 방식으로 판정한다(substring/contains 매치
+rem 금지 -- "11.8.0"/"1.8.01"/"1.8.1"이 family로 오인되면 안 됨, exact update suffix pinning은
+rem 더 이상 요구하지 않는다). java/javac 둘 다 family match여야 한다(양쪽 독립 판정, AND 결합).
+set "TARGET_JDK_FAMILY=1.8.0"
 
 for /f "usebackq delims=" %%v in (`java -version 2^>^&1`) do (
   if not defined JAVA_VER_LINE set "JAVA_VER_LINE=%%v"
@@ -51,22 +52,64 @@ set "JAVAC_TOKEN="
 for /f "tokens=2" %%a in ("%JAVAC_VER_LINE%") do if not defined JAVAC_TOKEN set "JAVAC_TOKEN=%%a"
 echo javac compiler version token: %JAVAC_TOKEN%
 
-set "JAVA_EXACT=0"
-set "JAVAC_EXACT=0"
-if "%JAVA_TOKEN%"=="%TARGET_JDK_TOKEN%" set "JAVA_EXACT=1"
-if "%JAVAC_TOKEN%"=="%TARGET_JDK_TOKEN%" set "JAVAC_EXACT=1"
+rem family match 조건: "1.8.0" 자체이거나 "1.8.0_" 뒤에 숫자 1개 이상만 허용한다(0-9를 모두
+rem 제거해 빈 값이면 순수 숫자였다는 뜻, "U" 접두로 빈 문자열/변수소실 문제를 피한다). 개별
+rem 자리 제거로 처리해 for-loop 변수를 substitution search key로 쓸 때의 파싱 결함을 피한다.
+if not defined JAVA_TOKEN set "JAVA_TOKEN=UNPARSED_VERSION_TOKEN"
+if not defined JAVAC_TOKEN set "JAVAC_TOKEN=UNPARSED_VERSION_TOKEN"
+
+set "JAVA_FAMILY_MATCH=0"
+if "%JAVA_TOKEN%"=="%TARGET_JDK_FAMILY%" set "JAVA_FAMILY_MATCH=1"
+set "JAVA_PREFIX_OK=0"
+if "%JAVA_TOKEN:~0,6%"=="%TARGET_JDK_FAMILY%_" set "JAVA_PREFIX_OK=1"
+set "JAVA_UPDATE=U"
+if "%JAVA_PREFIX_OK%"=="1" set "JAVA_UPDATE=U%JAVA_TOKEN:~6%"
+set "JAVA_UPDATE_STRIPPED=%JAVA_UPDATE%"
+set "JAVA_UPDATE_STRIPPED=%JAVA_UPDATE_STRIPPED:0=%"
+set "JAVA_UPDATE_STRIPPED=%JAVA_UPDATE_STRIPPED:1=%"
+set "JAVA_UPDATE_STRIPPED=%JAVA_UPDATE_STRIPPED:2=%"
+set "JAVA_UPDATE_STRIPPED=%JAVA_UPDATE_STRIPPED:3=%"
+set "JAVA_UPDATE_STRIPPED=%JAVA_UPDATE_STRIPPED:4=%"
+set "JAVA_UPDATE_STRIPPED=%JAVA_UPDATE_STRIPPED:5=%"
+set "JAVA_UPDATE_STRIPPED=%JAVA_UPDATE_STRIPPED:6=%"
+set "JAVA_UPDATE_STRIPPED=%JAVA_UPDATE_STRIPPED:7=%"
+set "JAVA_UPDATE_STRIPPED=%JAVA_UPDATE_STRIPPED:8=%"
+set "JAVA_UPDATE_STRIPPED=%JAVA_UPDATE_STRIPPED:9=%"
+if "%JAVA_PREFIX_OK%"=="1" if not "%JAVA_UPDATE%"=="U" if "%JAVA_UPDATE_STRIPPED%"=="U" set "JAVA_FAMILY_MATCH=1"
+
+rem javac token도 java와 완전히 동일한 규칙으로 독립 판정한다(서로 다른 update suffix라도
+rem 각자 family이기만 하면 된다 -- JAVA_AND_JAVAC_SAME_UPDATE_SUFFIX_REQUIRED = FALSE).
+set "JAVAC_FAMILY_MATCH=0"
+if "%JAVAC_TOKEN%"=="%TARGET_JDK_FAMILY%" set "JAVAC_FAMILY_MATCH=1"
+set "JAVAC_PREFIX_OK=0"
+if "%JAVAC_TOKEN:~0,6%"=="%TARGET_JDK_FAMILY%_" set "JAVAC_PREFIX_OK=1"
+set "JAVAC_UPDATE=U"
+if "%JAVAC_PREFIX_OK%"=="1" set "JAVAC_UPDATE=U%JAVAC_TOKEN:~6%"
+set "JAVAC_UPDATE_STRIPPED=%JAVAC_UPDATE%"
+set "JAVAC_UPDATE_STRIPPED=%JAVAC_UPDATE_STRIPPED:0=%"
+set "JAVAC_UPDATE_STRIPPED=%JAVAC_UPDATE_STRIPPED:1=%"
+set "JAVAC_UPDATE_STRIPPED=%JAVAC_UPDATE_STRIPPED:2=%"
+set "JAVAC_UPDATE_STRIPPED=%JAVAC_UPDATE_STRIPPED:3=%"
+set "JAVAC_UPDATE_STRIPPED=%JAVAC_UPDATE_STRIPPED:4=%"
+set "JAVAC_UPDATE_STRIPPED=%JAVAC_UPDATE_STRIPPED:5=%"
+set "JAVAC_UPDATE_STRIPPED=%JAVAC_UPDATE_STRIPPED:6=%"
+set "JAVAC_UPDATE_STRIPPED=%JAVAC_UPDATE_STRIPPED:7=%"
+set "JAVAC_UPDATE_STRIPPED=%JAVAC_UPDATE_STRIPPED:8=%"
+set "JAVAC_UPDATE_STRIPPED=%JAVAC_UPDATE_STRIPPED:9=%"
+if "%JAVAC_PREFIX_OK%"=="1" if not "%JAVAC_UPDATE%"=="U" if "%JAVAC_UPDATE_STRIPPED%"=="U" set "JAVAC_FAMILY_MATCH=1"
+
 rem batch의 "if A if B (...) else (...)" 연쇄는 else가 두번째 if에만 붙어 첫 조건 거짓 시
 rem 두 분기 모두 건너뛰는 결함이 있다(실제 java/javac 버전 불일치 오탐 사례로 발견됨).
-rem BOTH_EXACT로 조건을 먼저 하나로 합친 뒤 단일 if/else로 판정해 이 결함을 피한다.
-set "BOTH_EXACT=0"
-if "%JAVA_EXACT%"=="1" if "%JAVAC_EXACT%"=="1" set "BOTH_EXACT=1"
-if "%BOTH_EXACT%"=="1" (
-  echo [TARGET_JDK_MATCH] Detected exact JDK %TARGET_JDK_TOKEN% ^(java and javac both match^).
+rem BOTH_FAMILY_MATCH로 조건을 먼저 하나로 합친 뒤 단일 if/else로 판정해 이 결함을 피한다.
+set "BOTH_FAMILY_MATCH=0"
+if "%JAVA_FAMILY_MATCH%"=="1" if "%JAVAC_FAMILY_MATCH%"=="1" set "BOTH_FAMILY_MATCH=1"
+if "%BOTH_FAMILY_MATCH%"=="1" (
+  echo [TARGET_JDK_MATCH] Detected JDK %TARGET_JDK_FAMILY% family ^(java=%JAVA_TOKEN%, javac=%JAVAC_TOKEN%, both match, exact update suffix not required^).
 ) else (
   rem VERIFY_STANDALONE_TARGET_JDK_MISMATCH_RESULT_REQUIRED = FAIL -- 불일치는 경고로 끝나지
   rem 않는다. 대체 JDK/PATH 재작성/다운로드/네트워크 접근 없이 compile/test 전에 fail-closed한다.
-  echo [TARGET_JDK_MISMATCH_FAIL] Detected JDK does not exactly match the accepted target %TARGET_JDK_TOKEN% -- java_token=%JAVA_TOKEN% java_exact=%JAVA_EXACT% javac_token=%JAVAC_TOKEN% javac_exact=%JAVAC_EXACT%
-  echo [STANDALONE_VERIFICATION_FAIL] exact target JDK %TARGET_JDK_TOKEN% required for BOTH java and javac, mismatch is fail-closed.
+  echo [TARGET_JDK_MISMATCH_FAIL] Detected JDK does not match the accepted %TARGET_JDK_FAMILY% family for BOTH java and javac -- java_token=%JAVA_TOKEN% java_family_match=%JAVA_FAMILY_MATCH% javac_token=%JAVAC_TOKEN% javac_family_match=%JAVAC_FAMILY_MATCH%
+  echo [STANDALONE_VERIFICATION_FAIL] JDK %TARGET_JDK_FAMILY% family required for BOTH java and javac, mismatch is fail-closed.
   exit /b 1
 )
 

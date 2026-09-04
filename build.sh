@@ -14,7 +14,7 @@ echo "== XPlatform to WebSquare Converter - Offline Build =="
 echo "Project root: $PROJECT_ROOT"
 
 if ! command -v java >/dev/null 2>&1 || ! command -v javac >/dev/null 2>&1; then
-  echo "[FAIL] java/javac not found on PATH. Set JAVA_HOME to your JDK 1.8.0_111 install and add its bin/ to PATH."
+  echo "[FAIL] java/javac not found on PATH. A JDK 1.8.0 family installation's bin/ must be on PATH."
   exit 1
 fi
 
@@ -23,10 +23,31 @@ JAVAC_VER="$(javac -version 2>&1 | head -n 1)"
 echo "java -version:  $JAVA_VER"
 echo "javac -version: $JAVAC_VER"
 
-case "$JAVA_VER" in
-  *1.8.0_111*) echo "[TARGET_JDK_MATCH] Detected exact JDK 1.8.0_111." ;;
-  *) echo "[TARGET_JDK_MISMATCH_WARNING] Detected JDK is not exactly 1.8.0_111. Compile will still be attempted; this warning does NOT mean the build failed, and this build script does NOT certify TARGET_JDK_RUNTIME_VERIFIED. Use verify-offline.sh for the mandatory exact-JDK gate." ;;
-esac
+JAVA_TOKEN="$(printf '%s\n' "$JAVA_VER" | sed -n 's/.*"\([^"]*\)".*/\1/p')"
+JAVAC_TOKEN="$(printf '%s\n' "$JAVAC_VER" | awk '{print $2}')"
+
+# verify-standalone.bat Step 1(mandatory gate)과 동일한 anchored family 규칙이다(substring
+# 매치 아님, case 패턴은 전체 문자열 기준). non-authoritative build helper이므로 mismatch여도
+# compile은 계속 진행한다(실패 처리 없음, mandatory gate는 verify-offline.sh가 위임하는 쪽).
+is_jdk_1_8_0_family() {
+  case "$1" in
+    1.8.0) return 0 ;;
+    1.8.0_*)
+      u="${1#1.8.0_}"
+      case "$u" in
+        ''|*[!0-9]*) return 1 ;;
+        *) return 0 ;;
+      esac
+      ;;
+    *) return 1 ;;
+  esac
+}
+
+if is_jdk_1_8_0_family "$JAVA_TOKEN" && is_jdk_1_8_0_family "$JAVAC_TOKEN"; then
+  echo "[TARGET_JDK_MATCH] Detected JDK 1.8.0 family (java=$JAVA_TOKEN, javac=$JAVAC_TOKEN)."
+else
+  echo "[TARGET_JDK_MISMATCH_WARNING] Detected JDK is not in the 1.8.0 family for both java and javac (java=$JAVA_TOKEN, javac=$JAVAC_TOKEN). Compile will still be attempted; this warning does NOT mean the build failed, and this build script does NOT certify TARGET_JDK_RUNTIME_VERIFIED. Use verify-offline.sh for the mandatory JDK family gate."
+fi
 
 rm -rf "$BUILD_DIR"
 mkdir -p "$CLASSES_DIR"

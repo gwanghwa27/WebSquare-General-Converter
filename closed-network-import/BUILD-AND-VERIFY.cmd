@@ -57,7 +57,7 @@ echo fallback (XPlatformProjectConverter / WebSquareGenerator) is forbidden. For
 echo conversion, use closed-network-import\BATCH-CONVERT.cmd, supplying an input folder, an output
 echo folder, and a runtime profile file as its three arguments (Slice 99F) -- it requires an
 echo explicit caller-supplied TargetRuntimeProfile file (see closed-network-import\
-echo example-runtime-profile.txt) and delegates its exact-JDK gate to verify-standalone.bat. For
+echo example-runtime-profile.txt) and delegates its JDK 1.8.0 family gate to verify-standalone.bat. For
 echo standalone acceptance verification, use verify-standalone.bat (or verify-offline.bat/
 echo verify-offline.sh, which delegate to it).
 set "FAIL=1"

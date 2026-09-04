@@ -23,12 +23,13 @@ entrypoint로 disabled**되어 있다 -- 실행하면 즉시 `[CURRENT_PROJECT_C
 
 WebSquare General Converter는 raw XFDL을 입력으로 받아 WebSquare XML을 생성하는 독립(standalone)
 converter다. 이 문서는 그 소스 전체를 인터넷 없는 폐쇄망 PC로 반입해, Maven/Gradle/외부 JAR 없이
-JDK 1.8.0_111만으로 compile/convert/verify할 수 있도록 안내한다. 전체 아키텍처 개요와 accepted
-pipeline 설명은 루트 `README.md`를 참고한다.
+JDK 1.8.0 family(예: 1.8.0_111/1.8.0_503 등, exact update 버전 고정 없음)만으로 compile/convert/
+verify할 수 있도록 안내한다. 전체 아키텍처 개요와 accepted pipeline 설명은 루트 `README.md`를
+참고한다.
 
 ## 2. 요구 환경
 
-- JDK **1.8.0_111**
+- JDK **1.8.0 family**(exact update 버전 고정 없음 -- 예: `1.8.0_111`, `1.8.0_503`)
 - UTF-8
 - Maven/Gradle **불필요**
 - 외부 JAR **불필요**
@@ -47,7 +48,7 @@ pipeline 설명은 루트 `README.md`를 참고한다.
 ### IntelliJ
 
 Project SDK:
-JDK 1.8.0_111
+설치된 JDK 1.8.0 family(예: JDK 1.8.0_111)
 
 Language Level:
 8
@@ -55,7 +56,7 @@ Language Level:
 ### Eclipse
 
 Installed JRE:
-JDK 1.8.0_111
+설치된 JDK 1.8.0 family(예: JDK 1.8.0_111)
 
 Execution Environment:
 JavaSE-1.8
@@ -119,7 +120,7 @@ CLOSED_CONTRACT_LIMITATION (Slice 99D -- accepted path never generates ev:onpage
 Closed-network batch entrypoint:
 IMPLEMENTED_AND_TARGET_JDK_CERTIFIED (Slice 99F 구현 + Slice 99I 인증 -- closed-network-import\
 BATCH-CONVERT.cmd/.sh, explicit caller-supplied TargetRuntimeProfile file required, no implicit
-default; delegates the exact-JDK gate to verify-standalone.bat rather than duplicating it -- 아래
+default; delegates the JDK 1.8.0 family gate to verify-standalone.bat rather than duplicating it -- 아래
 Target JDK 인증 근거와 동일하게 정규 entrypoint smoke와 raw committed HEAD smoke 둘 다 PASS로
 확인됨). Slice 100D에서 저장소 root convenience entrypoint `closed-network-batch-convert.bat`가
 추가됐다 -- 이 wrapper는 위 `BATCH-CONVERT.cmd`로만 그대로 위임하는 thin delegation일 뿐 별도의
@@ -182,6 +183,14 @@ authority가 아니다. 현재 architecture와 accepted behavior는 Reviewer가 
 standing과 accepted current source/contract를 기준으로 판단하며, 이 문서(항목 7 포함)는 그 승인된
 standing을 사용자에게 보고/설명하는 문서일 뿐 이 문서 자체가 independent architecture authority는
 아니다.
+
+**현재(Slice 100E-I) gate standing**(위 Slice 99I 단락과 구분되는 별도 standing -- 과거 인증
+사실을 현재 mandatory 요구사항으로 재해석하지 않는다):
+`HISTORICAL_EXACT_JDK_1_8_0_111_CERTIFICATION = PASS`(위 Slice 99I 인증 그대로 보존),
+`CURRENT_REQUIRED_JDK_VERSION_FAMILY = 1.8.0`, `CURRENT_EXACT_UPDATE_PINNING_REQUIRED = FALSE`.
+현재 `verify-standalone.bat`는 java/javac 버전 token이 각각 `1.8.0` family(예: `1.8.0_111`,
+`1.8.0_503`)에 속하기만 하면 PASS로 인정하며, 두 실행파일이 같은 설치 경로에서 왔는지 확인하는
+filesystem 검사는 하지 않는다(`README.md` 항목 8 참고).
 
 ## 9. WebSquare Runtime 관련 주의사항
 

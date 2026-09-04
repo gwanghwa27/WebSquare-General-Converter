@@ -7,9 +7,9 @@ raw XFDL을 입력으로 받아 WebSquare XML을 생성하는 독립(standalone)
 ## 1. 프로젝트 개요
 
 이 프로젝트는 XPlatform XFDL 화면을 WebSquare XML로 변환하는 Java 8 source project다.
-Maven/Gradle/외부 JAR 의존 없이, JDK 1.8.0_111만으로 compile/convert/verify할 수 있다. 배포용
-컴파일 산출물(binary)이 아니라 폐쇄망에서 직접 컴파일하고 실행할 수 있는 source project로
-구성되어 있다.
+Maven/Gradle/외부 JAR 의존 없이, JDK 1.8.0 family(예: 1.8.0_111/1.8.0_503 등, exact update
+버전 고정 없음)만으로 compile/convert/verify할 수 있다. 배포용 컴파일 산출물(binary)이 아니라
+폐쇄망에서 직접 컴파일하고 실행할 수 있는 source project로 구성되어 있다.
 
 ## 2. Accepted Pipeline
 
@@ -92,10 +92,20 @@ evidence)와 `FROZEN-DO-NOT-MODIFY.md`(historical policy record)에 별도로 �
 
 ## 8. JDK
 
-- exact certified target: **JDK 1.8.0_111**.
-- `java.exe`와 `javac.exe`가 **same-home**(동일 설치 경로)에서 모두 정확히 1.8.0_111이어야 한다.
-- process-local(비영속) `JAVA_HOME`/`PATH` selection이 accepted certification 방법이다.
+- required version family: **JDK 1.8.0**(예: `1.8.0_111`, `1.8.0_503` 등 — exact update 번호
+  고정은 요구하지 않는다). `java`/`javac` 각각의 버전 token이 독립적으로 family에 속해야 하며,
+  둘의 update 번호가 서로 달라도(예: java=`1.8.0_111`, javac=`1.8.0_503`) 무방하다.
+- Java 7/9/11/17/21 등 1.8.0 family가 아닌 버전은 fail-closed된다.
+- `verify-standalone.bat`가 실제로 검사하는 것은 현재 process `PATH`에서 resolve된 `java`/
+  `javac`의 버전 출력 문자열뿐이다 — 두 실행파일이 같은 설치 디렉터리(filesystem same-home)에서
+  왔는지를 검사하는 별도 로직은 없다. process-local(비영속) `JAVA_HOME`/`PATH` selection은
+  운영자가 두 실행파일을 원하는 설치본으로 일치시키는 방법일 뿐, verifier가 `JAVA_HOME` 값
+  자체를 읽거나 강제하지는 않는다.
 - 시스템 전역 PATH나 레지스트리를 영구적으로 변경할 필요는 없다.
+- **historical**: Slice 99I에서 same-home `C:\Program Files\Java\jdk1.8.0_111`(java/javac 모두
+  exact 1.8.0_111)로 인증한 과거 사실은 `HISTORICAL_EXACT_JDK_1_8_0_111_CERTIFICATION = PASS`로
+  보존되어 있다(`README-OFFLINE.md` 항목 7 참고) — 이는 과거 인증 기록이며 현재 gate가 요구하는
+  최소 조건이 아니다.
 
 ## 9. Build / Verify
 
@@ -108,9 +118,9 @@ verify-standalone.bat (Windows, 검증 authority)
 verify-offline.bat / ./verify-offline.sh  (verify-standalone.bat에 위임하는 thin wrapper)
 ```
 
-`verify-standalone.bat`의 exact-JDK gate를 우회하는 방법은 존재하지 않으며, 이 문서는 그런 우회
-방법을 제안하지 않는다 — java/javac가 정확히 1.8.0_111이 아니면 검증은 `[TARGET_JDK_MISMATCH_FAIL]`로
-fail-closed된다(정상 동작).
+`verify-standalone.bat`의 JDK 1.8.0 family gate를 우회하는 방법은 존재하지 않으며, 이 문서는 그런
+우회 방법을 제안하지 않는다 — java/javac 중 하나라도 1.8.0 family가 아니면 검증은
+`[TARGET_JDK_MISMATCH_FAIL]`로 fail-closed된다(정상 동작).
 
 ## 10. Closed-Network Conversion
 
@@ -121,8 +131,8 @@ fail-closed된다(정상 동작).
   구현에 전달하고, 그 exit code를 그대로 반환할 뿐이다. JDK 게이트/변환/runtime profile 해석
   로직을 스스로 구현하지 않는다 — 새로운 converter나 독립 인증 authority가 아니다.
 - **delegated authoritative batch implementation**: `closed-network-import\BATCH-CONVERT.cmd` —
-  exact-JDK gate 위임(`verify-standalone.bat` 경유)과 실제 batch 변환 로직을 보유한 authoritative
-  구현이다. root wrapper를 거치든 직접 실행하든 동일한 이 구현이 실행된다.
+  JDK 1.8.0 family gate 위임(`verify-standalone.bat` 경유)과 실제 batch 변환 로직을 보유한
+  authoritative 구현이다. root wrapper를 거치든 직접 실행하든 동일한 이 구현이 실행된다.
 
 ```
 closed-network-batch-convert.bat inputRoot outputRoot runtimeProfileFile

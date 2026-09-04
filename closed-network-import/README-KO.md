@@ -86,8 +86,8 @@ metadata에 기록된 SHA(`9634dbcd506d3eeaf1a238e4157059d6c3c4c2facdd85039ba8b4
 
 ## 5. Build 방법
 
-폐쇄망 JDK 1.8.0_111 기준(exact JDK 요구사항, `verify-offline.sh`/`.bat`
-참고):
+폐쇄망 JDK 1.8.0 family 기준(exact update 버전 고정 없음, 예: 1.8.0_111/1.8.0_503,
+`verify-offline.sh`/`.bat` 참고):
 
 ```
 cd <반입한 저장소 루트>
@@ -120,7 +120,7 @@ BATCH-CONVERT.cmd`(정규 platform, authoritative 구현)/`.sh`(best-effort brid
 반환만 수행하는 thin delegation wrapper일 뿐, 아래 인자 계약이나 실제 변환
 로직은 여전히 `BATCH-CONVERT.cmd`가 authoritative하게 보유한다. 두 경로 모두
 호출자가 `inputRoot`/`outputRoot`/runtime profile 파일 세 인자를 명시적으로
-제공해야 하며, exact-JDK 게이트는 `verify-standalone.bat`에 위임한다(자체
+제공해야 하며, JDK 1.8.0 family 게이트는 `verify-standalone.bat`에 위임한다(자체
 재구현 없음).
 `inputRoot`/`outputRoot`는 같거나 서로 nested되면 안 되고(real path 기준),
 심볼릭 링크 항목은 확장자/대상과 무관하게 항상 거부하며, junction 등
