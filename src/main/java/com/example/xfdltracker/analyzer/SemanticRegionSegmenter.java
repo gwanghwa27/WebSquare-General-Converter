@@ -386,6 +386,12 @@ public class SemanticRegionSegmenter {
                         regionStructuralId, control.getStructuralId(), "control", "source_tag_name",
                         control.getSourceTagName(), null, pairIndex * 2 + 1, rowIdx, Integer.valueOf(i + 1),
                         pairIdxInRow));
+                if (control.getOptionResolution() != null) {
+                    // Slice 102D -- option 선언 evidence(성공/실패 모두)가 있으면 control의
+                    // structuralId를 key로 그대로 옮긴다(재계산/재판정 없음).
+                    result.getOptionResolutionBySourceComponentStructuralId().put(
+                            control.getStructuralId(), control.getOptionResolution());
+                }
                 pairIndex++;
             }
         }

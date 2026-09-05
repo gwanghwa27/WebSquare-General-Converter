@@ -27,7 +27,11 @@ public class RendererArchitectureIsolationTest {
             // ComponentPredicateAnalyzer/ComponentPredicateAnalysis/ComponentLayoutConverter는
             // SemanticRegionSegmenter만 위임하는 component-level/pre-semantic 협력자다 --
             // renderer 계층이 이들을 직접 참조해서는 안 된다.
-            "ComponentPredicateAnalysis", "ComponentPredicateAnalyzer", "ComponentLayoutConverter"
+            "ComponentPredicateAnalysis", "ComponentPredicateAnalyzer", "ComponentLayoutConverter",
+            // Slice 102D -- source-lane option evidence 타입(semantic/analyzer 패키지)도 renderer가
+            // 직접 참조해선 안 된다. renderer는 오직 target-lane TargetOptionItem(payload 패키지)만
+            // 소비한다 -- source Dataset identity/원본 resolve 결과를 볼 수 없어야 한다.
+            "SourceOptionSetEvidence", "SourceOptionResolution", "SourceOptionSetResolver", "SourceOptionItem"
     };
 
     public static void main(String[] args) throws Exception {

@@ -117,4 +117,16 @@ public class SemanticRegionResult {
     public void setTabPageMembership(TabPageMembership tabPageMembership) {
         this.tabPageMembership = tabPageMembership;
     }
+
+    /**
+     * control의 {@code sourceComponentStructuralId}를 key로 option 선언 resolve 결과(성공/실패
+     * 모두)를 담는다(evidence 없는 control은 map에 아예 없음). BUSINESS_TABLE도 같이 채워질 수
+     * 있으나 실제 소비/fail-closed 강제는 SEARCH_AREA뿐이다(extractor가 family로 gate).
+     */
+    private final Map<String, SourceOptionResolution> optionResolutionBySourceComponentStructuralId =
+            new LinkedHashMap<String, SourceOptionResolution>();
+
+    public Map<String, SourceOptionResolution> getOptionResolutionBySourceComponentStructuralId() {
+        return optionResolutionBySourceComponentStructuralId;
+    }
 }

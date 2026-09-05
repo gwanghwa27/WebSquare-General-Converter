@@ -1,5 +1,11 @@
 package com.example.xfdltracker.pipeline;
 
+import com.example.xfdltracker.analyzer.SemanticRegionSegmenter;
+import com.example.xfdltracker.parser.XfdlReader;
+import com.example.xfdltracker.semantic.SemanticRegionResult;
+
+import org.w3c.dom.Element;
+
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.InputStream;
@@ -97,6 +103,12 @@ public class StandaloneDependencyIsolationTest {
         testAcceptedTabControlOutputContainsNoLegacyGetScopeOrRuntimeScript();
         testAcceptedPathHasNoLegacyClassMergeHelperReference();
         testAcceptedButtonGridClassOutputMatchesAuditedContract();
+        testAcceptedSearchAreaComboOptionOutputContainsStaticChoicesFromFormLocalDataset();
+        testAcceptedSearchAreaRadioOptionOutputContainsStaticChoicesFromFormLocalDataset();
+        testAcceptedSearchAreaPlainComboRadioOutputUnchangedNoStaticChoices();
+        testSearchAreaShapedInlineChildDatasetReconstructionFailsClosedNeverSucceeds();
+        testAcceptedSearchAreaMissingDatasetReferenceFailsClosedNoPartialOutput();
+        testActualInlineChildDatasetFixtureDoesNotMatchSearchAreaPredicate();
 
         if (failures == 0) {
             System.out.println("ALL TESTS PASSED");
@@ -1556,6 +1568,252 @@ public class StandaloneDependencyIsolationTest {
                 gridGenerated.contains("wq_gvw"));
         assertTrue("class-merge-gap: accepted GRID output must not contain source cssclass value",
                 !gridGenerated.contains("custom_source_class"));
+    }
+
+    /**
+     * Slice 102D -- 전체 accepted 파이프라인(temp .xfdl -&gt; convert() -&gt; 산출물 XML 문자열)을
+     * 실제로 실행해, form-local literal Dataset을 참조하는 Combo가 xf:choices/xf:item으로
+     * materialize됨을 증명한다(단위 테스트가 아니라 end-to-end).
+     */
+    private static void testAcceptedSearchAreaComboOptionOutputContainsStaticChoicesFromFormLocalDataset()
+            throws Exception {
+        File dir = Files.createTempDirectory("search-area-combo-option-fixture").toFile();
+        File xfdl = new File(dir, "SearchAreaComboOption.xfdl");
+        String content = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
+                + "<FDL version=\"1.5\">\n"
+                + "  <Form id=\"SearchAreaComboOption\" width=\"400\" height=\"200\">\n"
+                + "    <Objects>\n"
+                + "      <Dataset id=\"dsStatus\">\n"
+                + "        <ColumnInfo><Column id=\"CD\" size=\"10\"/><Column id=\"NM\" size=\"20\"/></ColumnInfo>\n"
+                + "        <Rows>\n"
+                + "          <Row><Col id=\"CD\">A</Col><Col id=\"NM\">사용</Col></Row>\n"
+                + "          <Row><Col id=\"CD\">B</Col><Col id=\"NM\">미사용</Col></Row>\n"
+                + "        </Rows>\n"
+                + "      </Dataset>\n"
+                + "    </Objects>\n"
+                + "    <Div id=\"search1\">\n"
+                + "      <Static id=\"lbl1\" text=\"상태\" left=\"0\" top=\"0\" width=\"50\" height=\"20\" />\n"
+                + "      <Combo id=\"comboStatus\" innerdataset=\"dsStatus\" codecolumn=\"CD\" datacolumn=\"NM\" "
+                + "left=\"60\" top=\"0\" width=\"100\" height=\"20\" />\n"
+                + "    </Div>\n"
+                + "    <Grid id=\"gridPeer\" left=\"0\" top=\"150\" width=\"200\" height=\"120\">\n"
+                + "      <Formats><Format id=\"fmt1\"><Columns><Column size=\"100\" /></Columns>"
+                + "<Band id=\"head\"><Cell col=\"0\" row=\"0\" /></Band>"
+                + "<Band id=\"body\"><Cell col=\"0\" row=\"0\" /></Band></Format></Formats>\n"
+                + "    </Grid>\n"
+                + "  </Form>\n"
+                + "</FDL>\n";
+        Files.write(xfdl.toPath(), content.getBytes(StandardCharsets.UTF_8));
+        File output = new File(dir, "SearchAreaComboOption.xml");
+        new TargetWebSquarePipeline().convert(
+                xfdl, output, new TargetPipelineConfig(com.example.xfdltracker.runtime.TargetRuntimeProfile.empty()));
+        String generated = new String(Files.readAllBytes(output.toPath()), StandardCharsets.UTF_8);
+        assertTrue("search-area-combo-option: output contains xf:select1", generated.contains("xf:select1"));
+        assertTrue("search-area-combo-option: output contains appearance=minimal",
+                generated.contains("appearance=\"minimal\""));
+        assertTrue("search-area-combo-option: output contains xf:choices", generated.contains("xf:choices"));
+        assertTrue("search-area-combo-option: output contains xf:item", generated.contains("xf:item"));
+        assertTrue("search-area-combo-option: output contains label 사용", generated.contains("사용"));
+        assertTrue("search-area-combo-option: output contains label 미사용", generated.contains("미사용"));
+        assertTrue("search-area-combo-option: output contains value A", generated.contains(">A<"));
+        assertTrue("search-area-combo-option: output contains value B", generated.contains(">B<"));
+        assertTrue("search-area-combo-option: output must not contain xf:itemset",
+                !generated.contains("xf:itemset"));
+        assertTrue("search-area-combo-option: output must not contain w2:dataList",
+                !generated.contains("dataList"));
+        assertTrue("search-area-combo-option: output must not reference source Dataset id dsStatus "
+                        + "as target runtime identity", !generated.contains("dsStatus"));
+    }
+
+    /** Radio 버전 -- appearance=full로 매핑되는 것을 제외하고 Combo와 동일한 계약을 증명한다. */
+    private static void testAcceptedSearchAreaRadioOptionOutputContainsStaticChoicesFromFormLocalDataset()
+            throws Exception {
+        File dir = Files.createTempDirectory("search-area-radio-option-fixture").toFile();
+        File xfdl = new File(dir, "SearchAreaRadioOption.xfdl");
+        String content = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
+                + "<FDL version=\"1.5\">\n"
+                + "  <Form id=\"SearchAreaRadioOption\" width=\"400\" height=\"200\">\n"
+                + "    <Objects>\n"
+                + "      <Dataset id=\"dsType\">\n"
+                + "        <ColumnInfo><Column id=\"CODE\" size=\"10\"/><Column id=\"NAME\" size=\"20\"/></ColumnInfo>\n"
+                + "        <Rows>\n"
+                + "          <Row><Col id=\"CODE\">1</Col><Col id=\"NAME\">일반</Col></Row>\n"
+                + "        </Rows>\n"
+                + "      </Dataset>\n"
+                + "    </Objects>\n"
+                + "    <Div id=\"search1\">\n"
+                + "      <Static id=\"lbl1\" text=\"종류\" left=\"0\" top=\"0\" width=\"50\" height=\"20\" />\n"
+                + "      <Radio id=\"radioType\" innerdataset=\"dsType\" codecolumn=\"CODE\" datacolumn=\"NAME\" "
+                + "left=\"60\" top=\"0\" width=\"100\" height=\"20\" />\n"
+                + "    </Div>\n"
+                + "    <Grid id=\"gridPeer\" left=\"0\" top=\"150\" width=\"200\" height=\"120\">\n"
+                + "      <Formats><Format id=\"fmt1\"><Columns><Column size=\"100\" /></Columns>"
+                + "<Band id=\"head\"><Cell col=\"0\" row=\"0\" /></Band>"
+                + "<Band id=\"body\"><Cell col=\"0\" row=\"0\" /></Band></Format></Formats>\n"
+                + "    </Grid>\n"
+                + "  </Form>\n"
+                + "</FDL>\n";
+        Files.write(xfdl.toPath(), content.getBytes(StandardCharsets.UTF_8));
+        File output = new File(dir, "SearchAreaRadioOption.xml");
+        new TargetWebSquarePipeline().convert(
+                xfdl, output, new TargetPipelineConfig(com.example.xfdltracker.runtime.TargetRuntimeProfile.empty()));
+        String generated = new String(Files.readAllBytes(output.toPath()), StandardCharsets.UTF_8);
+        assertTrue("search-area-radio-option: output contains xf:select1", generated.contains("xf:select1"));
+        assertTrue("search-area-radio-option: output contains appearance=full",
+                generated.contains("appearance=\"full\""));
+        assertTrue("search-area-radio-option: output contains xf:choices", generated.contains("xf:choices"));
+        assertTrue("search-area-radio-option: output contains label 일반", generated.contains("일반"));
+        assertTrue("search-area-radio-option: output contains value 1", generated.contains(">1<"));
+        assertTrue("search-area-radio-option: output must not contain xf:itemset",
+                !generated.contains("xf:itemset"));
+        assertTrue("search-area-radio-option: output must not contain w2:dataList",
+                !generated.contains("dataList"));
+    }
+
+    /**
+     * 항목 21(plain-control 회귀, full-pipeline) -- option 선언 evidence가 전혀 없는 plain Combo/
+     * Radio는 여전히 xf:choices 없이 그대로 렌더링된다(기존 accepted 동작 변화 없음).
+     */
+    private static void testAcceptedSearchAreaPlainComboRadioOutputUnchangedNoStaticChoices() throws Exception {
+        File dir = Files.createTempDirectory("search-area-plain-control-fixture").toFile();
+        File xfdl = new File(dir, "SearchAreaPlainControl.xfdl");
+        String content = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
+                + "<FDL version=\"1.5\">\n"
+                + "  <Form id=\"SearchAreaPlainControl\" width=\"400\" height=\"200\">\n"
+                + "    <Div id=\"search1\">\n"
+                + "      <Static id=\"lbl1\" text=\"이름\" left=\"0\" top=\"0\" width=\"50\" height=\"20\" />\n"
+                + "      <Combo id=\"comboPlain\" left=\"60\" top=\"0\" width=\"100\" height=\"20\" />\n"
+                + "      <Static id=\"lbl2\" text=\"종류\" left=\"0\" top=\"30\" width=\"50\" height=\"20\" />\n"
+                + "      <Radio id=\"radioPlain\" left=\"60\" top=\"30\" width=\"100\" height=\"20\" />\n"
+                + "    </Div>\n"
+                + "    <Grid id=\"gridPeer\" left=\"0\" top=\"150\" width=\"200\" height=\"120\">\n"
+                + "      <Formats><Format id=\"fmt1\"><Columns><Column size=\"100\" /></Columns>"
+                + "<Band id=\"head\"><Cell col=\"0\" row=\"0\" /></Band>"
+                + "<Band id=\"body\"><Cell col=\"0\" row=\"0\" /></Band></Format></Formats>\n"
+                + "    </Grid>\n"
+                + "  </Form>\n"
+                + "</FDL>\n";
+        Files.write(xfdl.toPath(), content.getBytes(StandardCharsets.UTF_8));
+        File output = new File(dir, "SearchAreaPlainControl.xml");
+        new TargetWebSquarePipeline().convert(
+                xfdl, output, new TargetPipelineConfig(com.example.xfdltracker.runtime.TargetRuntimeProfile.empty()));
+        String generated = new String(Files.readAllBytes(output.toPath()), StandardCharsets.UTF_8);
+        assertTrue("search-area-plain-control: output contains appearance=minimal (Combo unchanged)",
+                generated.contains("appearance=\"minimal\""));
+        assertTrue("search-area-plain-control: output contains appearance=full (Radio unchanged)",
+                generated.contains("appearance=\"full\""));
+        assertTrue("search-area-plain-control: output must not contain xf:choices (no option evidence)",
+                !generated.contains("xf:choices"));
+    }
+
+    /**
+     * SEARCH_AREA_SHAPED_INLINE_DATASET = FAIL_CLOSED를 증명한다(Correction 항목 13). 이 fixture는
+     * {@code RadioInlineChildDatasetLiteral.xfdl}의 Dataset/속성 구조를 차용해 SEARCH_AREA로
+     * 분류되도록 재구성한 test-owned 합성 fixture이지 실제 파일 자체가 아니다(항목 12/13 참고).
+     */
+    private static void testSearchAreaShapedInlineChildDatasetReconstructionFailsClosedNeverSucceeds()
+            throws Exception {
+        File dir = Files.createTempDirectory("search-area-shaped-inline-dataset-fixture").toFile();
+        File xfdl = new File(dir, "SearchAreaShapedInlineDataset.xfdl");
+        String content = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
+                + "<FDL version=\"1.5\">\n"
+                + "  <Form id=\"SearchAreaShapedInlineDataset\" width=\"400\" height=\"200\">\n"
+                + "    <Div id=\"search1\">\n"
+                + "      <Static id=\"lbl1\" text=\"고객유형\" left=\"0\" top=\"0\" width=\"50\" height=\"20\" />\n"
+                + "      <Radio id=\"rdoLiteral\" codecolumn=\"codecolumn\" datacolumn=\"datacolumn\" "
+                + "left=\"60\" top=\"0\" width=\"100\" height=\"20\">\n"
+                + "        <Dataset id=\"innerdataset\"><ColumnInfo><Column id=\"codecolumn\" size=\"256\"/>"
+                + "<Column id=\"datacolumn\" size=\"256\"/></ColumnInfo><Rows>"
+                + "<Row><Col id=\"codecolumn\">0</Col><Col id=\"datacolumn\">기업고객(SOHO)</Col></Row>"
+                + "<Row><Col id=\"codecolumn\">1</Col><Col id=\"datacolumn\">개인고객(CB)</Col></Row>"
+                + "<Row><Col id=\"codecolumn\">01</Col><Col id=\"datacolumn\">A&amp;B</Col></Row>"
+                + "</Rows></Dataset>\n"
+                + "      </Radio>\n"
+                + "    </Div>\n"
+                + "    <Grid id=\"gridPeer\" left=\"0\" top=\"150\" width=\"200\" height=\"120\">\n"
+                + "      <Formats><Format id=\"fmt1\"><Columns><Column size=\"100\" /></Columns>"
+                + "<Band id=\"head\"><Cell col=\"0\" row=\"0\" /></Band>"
+                + "<Band id=\"body\"><Cell col=\"0\" row=\"0\" /></Band></Format></Formats>\n"
+                + "    </Grid>\n"
+                + "  </Form>\n"
+                + "</FDL>\n";
+        Files.write(xfdl.toPath(), content.getBytes(StandardCharsets.UTF_8));
+        File output = new File(dir, "SearchAreaShapedInlineDataset.xml");
+        boolean threw = false;
+        try {
+            new TargetWebSquarePipeline().convert(xfdl, output,
+                    new TargetPipelineConfig(com.example.xfdltracker.runtime.TargetRuntimeProfile.empty()));
+        } catch (IllegalStateException e) {
+            threw = true;
+            assertTrue("search-area-shaped-inline-dataset: failure reason is "
+                    + "search_area_inline_option_dataset_unproven -- " + e.getMessage(),
+                    e.getMessage().contains("search_area_inline_option_dataset_unproven"));
+        }
+        assertTrue("search-area-shaped-inline-dataset: SEARCH_AREA_SHAPED_INLINE_DATASET = FAIL_CLOSED "
+                + "(synthetic reconstruction must never succeed)", threw);
+        assertTrue("search-area-shaped-inline-dataset: no partial target XML published on failure",
+                !output.exists());
+    }
+
+    /** 추가 negative(full-pipeline 다양성) -- innerdataset이 가리키는 Dataset이 문서 어디에도
+     *  없는 malformed 선언도 fail-closed하며 부분 산출물을 남기지 않는다. */
+    private static void testAcceptedSearchAreaMissingDatasetReferenceFailsClosedNoPartialOutput() throws Exception {
+        File dir = Files.createTempDirectory("search-area-missing-dataset-fixture").toFile();
+        File xfdl = new File(dir, "SearchAreaMissingDataset.xfdl");
+        String content = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
+                + "<FDL version=\"1.5\">\n"
+                + "  <Form id=\"SearchAreaMissingDataset\" width=\"400\" height=\"200\">\n"
+                + "    <Div id=\"search1\">\n"
+                + "      <Static id=\"lbl1\" text=\"상태\" left=\"0\" top=\"0\" width=\"50\" height=\"20\" />\n"
+                + "      <Combo id=\"comboStatus\" innerdataset=\"dsNotThere\" codecolumn=\"CD\" datacolumn=\"NM\" "
+                + "left=\"60\" top=\"0\" width=\"100\" height=\"20\" />\n"
+                + "    </Div>\n"
+                + "    <Grid id=\"gridPeer\" left=\"0\" top=\"150\" width=\"200\" height=\"120\">\n"
+                + "      <Formats><Format id=\"fmt1\"><Columns><Column size=\"100\" /></Columns>"
+                + "<Band id=\"head\"><Cell col=\"0\" row=\"0\" /></Band>"
+                + "<Band id=\"body\"><Cell col=\"0\" row=\"0\" /></Band></Format></Formats>\n"
+                + "    </Grid>\n"
+                + "  </Form>\n"
+                + "</FDL>\n";
+        Files.write(xfdl.toPath(), content.getBytes(StandardCharsets.UTF_8));
+        File output = new File(dir, "SearchAreaMissingDataset.xml");
+        boolean threw = false;
+        try {
+            new TargetWebSquarePipeline().convert(xfdl, output,
+                    new TargetPipelineConfig(com.example.xfdltracker.runtime.TargetRuntimeProfile.empty()));
+        } catch (IllegalStateException e) {
+            threw = true;
+            assertTrue("search-area-missing-dataset: failure reason is search_area_option_dataset_missing -- "
+                    + e.getMessage(), e.getMessage().contains("search_area_option_dataset_missing"));
+        }
+        assertTrue("search-area-missing-dataset: conversion fails closed", threw);
+        assertTrue("search-area-missing-dataset: no partial target XML published on failure", !output.exists());
+    }
+
+    /**
+     * ACTUAL_INLINE_FIXTURE_SEARCH_AREA_APPLICABILITY = FALSE(Correction 항목 12) -- 실제
+     * {@code RadioInlineChildDatasetLiteral.xfdl}을 수정 없이 읽어 SEARCH_AREA/BUSINESS_TABLE
+     * predicate를 통과 못함을 확인한다(label-control 짝 없음). fail-closed 주장 아님, predicate 불변.
+     */
+    private static void testActualInlineChildDatasetFixtureDoesNotMatchSearchAreaPredicate() throws Exception {
+        File root = repositoryRoot();
+        File xfdl = new File(root, "sample-phase3-project/Form/RadioInlineChildDatasetLiteral.xfdl");
+        assertTrue("actual-inline-fixture: file exists unmodified", xfdl.isFile());
+
+        Element form = new XfdlReader().read(xfdl).getDocumentElement();
+        List<SemanticRegionResult> regions = new SemanticRegionSegmenter().segment(form);
+        for (SemanticRegionResult region : regions) {
+            assertTrue("actual-inline-fixture: no SEARCH_AREA/BUSINESS_TABLE region emitted (found "
+                            + region.getSemanticType() + ")",
+                    !"SEARCH_AREA".equals(region.getSemanticType())
+                            && !"BUSINESS_TABLE".equals(region.getSemanticType()));
+        }
+
+        File output = new File(Files.createTempDirectory("actual-inline-fixture-standing").toFile(), "out.xml");
+        new TargetWebSquarePipeline().convert(xfdl, output,
+                new TargetPipelineConfig(com.example.xfdltracker.runtime.TargetRuntimeProfile.empty()));
+        assertTrue("actual-inline-fixture: conversion succeeds (predicate never classifies this shape, "
+                + "so option-resolve fail-closed path is never reached for this exact file)", output.isFile());
     }
 
     private static File repositoryRoot() {

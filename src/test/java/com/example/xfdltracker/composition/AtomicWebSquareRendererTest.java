@@ -6,6 +6,7 @@ import com.example.xfdltracker.binding.SourceBindingReference;
 import com.example.xfdltracker.payload.TargetEventBinding;
 import com.example.xfdltracker.payload.TargetLeafPayload;
 import com.example.xfdltracker.payload.TargetNodePayload;
+import com.example.xfdltracker.payload.TargetOptionItem;
 import com.example.xfdltracker.payload.TargetPayloadCategory;
 import com.example.xfdltracker.payload.TargetPayloadExtractor;
 import com.example.xfdltracker.renderer.AtomicWebSquareRenderer;
@@ -159,6 +160,15 @@ public class AtomicWebSquareRendererTest {
         testSearchAreaMissingLabelRejected();
         testSearchAreaMissingControlRejected();
         testSearchAreaUnsupportedControlTypeRejected();
+
+        // ==== SEARCH_AREA Combo/Radio option 정적 렌더링(Slice 102D) ====
+        testSearchAreaComboWithOptionsRendersStaticChoices();
+        testSearchAreaRadioWithOptionsRendersStaticChoices();
+        testSearchAreaOptionItemsOrderedByAscendingRowOrdinalEvenIfShuffled();
+        testSearchAreaPlainComboAndRadioRenderNoStaticChoices();
+        testSearchAreaOptionItemsDuplicateRowOrdinalRejected();
+        testSearchAreaOptionItemsNonDenseRowOrdinalRejected();
+        testSearchAreaOptionItemsWrongElementTypeRejected();
 
         // ==== BUTTON_GROUP 원자적(atomic) 렌더링 ====
         testButtonGroupOneEventlessButtonRenders();
@@ -2322,6 +2332,257 @@ public class AtomicWebSquareRendererTest {
         AtomicRenderResult result = renderTamperedSearchArea(
                 built, java.util.Arrays.asList(labelLeaf(0, 0, 0), controlLeaf(0, 1, 0, "TextArea")));
         assertEquals("search-unsupported-control: status", "INTEGRITY_VIOLATION", String.valueOf(result.getStatus()));
+    }
+
+    // ---- SEARCH_AREA Combo/Radio option 렌더링(Slice 102D) -----------------------------------------
+
+    /** label+Combo/Radio 1개 pair 뒤에 Dataset 참조 option을 붙인 실제(fabrication 없는) fixture다.
+     *  {@code SourceOptionSetResolver}가 narrow subset을 성공적으로 resolve하도록
+     *  innerdataset/codecolumn/datacolumn과 실제 sibling Dataset을 함께 구성한다. */
+    private static Element buildSearchAreaOptionFixture(
+            Document doc, String controlTag, String datasetId, String codeCol, String dataCol,
+            String[][] rowsData) {
+        Element form = doc.createElement("Form");
+        doc.appendChild(form);
+
+        Element objects = doc.createElement("Objects");
+        Element dataset = doc.createElement("Dataset");
+        dataset.setAttribute("id", datasetId);
+        Element columnInfo = doc.createElement("ColumnInfo");
+        Element codeColumn = doc.createElement("Column");
+        codeColumn.setAttribute("id", codeCol);
+        Element dataColumn = doc.createElement("Column");
+        dataColumn.setAttribute("id", dataCol);
+        columnInfo.appendChild(codeColumn);
+        columnInfo.appendChild(dataColumn);
+        dataset.appendChild(columnInfo);
+        Element rows = doc.createElement("Rows");
+        for (String[] rowData : rowsData) {
+            Element row = doc.createElement("Row");
+            Element codeColEl = doc.createElement("Col");
+            codeColEl.setAttribute("id", codeCol);
+            codeColEl.setTextContent(rowData[0]);
+            Element dataColEl = doc.createElement("Col");
+            dataColEl.setAttribute("id", dataCol);
+            dataColEl.setTextContent(rowData[1]);
+            row.appendChild(codeColEl);
+            row.appendChild(dataColEl);
+            rows.appendChild(row);
+        }
+        dataset.appendChild(rows);
+        objects.appendChild(dataset);
+        form.appendChild(objects);
+
+        Element search = doc.createElement("Div");
+        search.setAttribute("id", "search1");
+        Element label = doc.createElement("Static");
+        label.setAttribute("id", "lbl0");
+        label.setAttribute("text", "Field");
+        label.setAttribute("left", "0");
+        label.setAttribute("top", "0");
+        label.setAttribute("width", "50");
+        label.setAttribute("height", "20");
+        Element control = doc.createElement(controlTag);
+        control.setAttribute("id", "ctl0");
+        control.setAttribute("innerdataset", datasetId);
+        control.setAttribute("codecolumn", codeCol);
+        control.setAttribute("datacolumn", dataCol);
+        control.setAttribute("left", "60");
+        control.setAttribute("top", "0");
+        control.setAttribute("width", "100");
+        control.setAttribute("height", "20");
+        search.appendChild(label);
+        search.appendChild(control);
+        form.appendChild(search);
+        form.appendChild(buildMinimalGridPeerForSearchArea(doc));
+        return form;
+    }
+
+    private static void assertStaticOptionItem(String label, Element item, String expectedLabelText, String expectedValueText) {
+        assertEquals(label + ": localName", "item", item.getLocalName());
+        assertEquals(label + ": namespace", NS_XF_TEST, item.getNamespaceURI());
+        List<Element> children = directChildren(item);
+        assertEquals(label + ": child count", "2", String.valueOf(children.size()));
+        assertEquals(label + ": child0 localName", "label", children.get(0).getLocalName());
+        assertEquals(label + ": child0 namespace", NS_XF_TEST, children.get(0).getNamespaceURI());
+        assertEquals(label + ": child0 text", expectedLabelText, children.get(0).getTextContent());
+        assertEquals(label + ": child1 localName", "value", children.get(1).getLocalName());
+        assertEquals(label + ": child1 namespace", NS_XF_TEST, children.get(1).getNamespaceURI());
+        assertEquals(label + ": child1 text", expectedValueText, children.get(1).getTextContent());
+    }
+
+    private static void assertNoItemsetOrDataListOrScriptAnywhere(String labelPrefix, Element root) {
+        List<Element> all = new ArrayList<Element>();
+        collectAllElements(root, all);
+        for (Element el : all) {
+            assertTrue(labelPrefix + ": no xf:itemset anywhere (found " + el.getLocalName() + ")",
+                    !"itemset".equals(el.getLocalName()));
+            assertTrue(labelPrefix + ": no w2:dataList anywhere (found " + el.getLocalName() + ")",
+                    !"dataList".equals(el.getLocalName()));
+            assertTrue(labelPrefix + ": no script element anywhere (found " + el.getLocalName() + ")",
+                    !"script".equals(el.getLocalName()));
+        }
+    }
+
+    /**
+     * 항목 13(positive: Combo) -- narrow subset을 만족하는 Combo는 xf:select1[appearance=minimal]
+     * 아래 정확히 xf:choices 1개, 그 안에 source Row document order 그대로의 xf:item(label/value)
+     * 목록이 렌더링된다. xf:itemset/w2:dataList/script는 어디에도 나타나지 않는다.
+     */
+    private static void testSearchAreaComboWithOptionsRendersStaticChoices() throws Exception {
+        Document doc = newDocument();
+        Element form = buildSearchAreaOptionFixture(doc, "Combo", "dsStatus", "CD", "NM",
+                new String[][] {{"A", "사용"}, {"B", "미사용"}});
+        RealPipelineResult built = runRealPipeline(form, "SEARCH_AREA");
+        AtomicRenderResult result = new AtomicWebSquareRenderer().render(built.plan, built.payloads).get(0);
+        assertEquals("search-combo-options: status", "RENDERED", String.valueOf(result.getStatus()));
+
+        List<Element> pairChildren = directChildren(directChildren(result.getTargetElement()).get(0));
+        Element control = pairChildren.get(1);
+        assertEquals("search-combo-options: control localName", "select1", control.getLocalName());
+        assertEquals("search-combo-options: control appearance", "minimal", control.getAttribute("appearance"));
+
+        List<Element> controlChildren = directChildren(control);
+        assertEquals("search-combo-options: exactly 1 xf:choices child", "1", String.valueOf(controlChildren.size()));
+        Element choices = controlChildren.get(0);
+        assertEquals("search-combo-options: choices localName", "choices", choices.getLocalName());
+        assertEquals("search-combo-options: choices namespace", NS_XF_TEST, choices.getNamespaceURI());
+
+        List<Element> items = directChildren(choices);
+        assertEquals("search-combo-options: item count", "2", String.valueOf(items.size()));
+        assertStaticOptionItem("search-combo-options: item0", items.get(0), "사용", "A");
+        assertStaticOptionItem("search-combo-options: item1", items.get(1), "미사용", "B");
+
+        assertNoItemsetOrDataListOrScriptAnywhere("search-combo-options", result.getTargetElement());
+    }
+
+    /**
+     * 항목 13(positive: Radio) -- narrow subset을 만족하는 Radio는 xf:select1[appearance=full]
+     * 아래 정확히 xf:choices 1개, source Row document order 그대로의 xf:item 목록이 렌더링된다.
+     */
+    private static void testSearchAreaRadioWithOptionsRendersStaticChoices() throws Exception {
+        Document doc = newDocument();
+        Element form = buildSearchAreaOptionFixture(doc, "Radio", "dsType", "CODE", "NAME",
+                new String[][] {{"1", "일반"}, {"2", "특수"}, {"3", "기타"}});
+        RealPipelineResult built = runRealPipeline(form, "SEARCH_AREA");
+        AtomicRenderResult result = new AtomicWebSquareRenderer().render(built.plan, built.payloads).get(0);
+        assertEquals("search-radio-options: status", "RENDERED", String.valueOf(result.getStatus()));
+
+        List<Element> pairChildren = directChildren(directChildren(result.getTargetElement()).get(0));
+        Element control = pairChildren.get(1);
+        assertEquals("search-radio-options: control localName", "select1", control.getLocalName());
+        assertEquals("search-radio-options: control appearance", "full", control.getAttribute("appearance"));
+
+        List<Element> controlChildren = directChildren(control);
+        assertEquals("search-radio-options: exactly 1 xf:choices child", "1", String.valueOf(controlChildren.size()));
+        Element choices = controlChildren.get(0);
+        assertEquals("search-radio-options: choices localName", "choices", choices.getLocalName());
+        assertEquals("search-radio-options: choices namespace", NS_XF_TEST, choices.getNamespaceURI());
+
+        List<Element> items = directChildren(choices);
+        assertEquals("search-radio-options: item count", "3", String.valueOf(items.size()));
+        assertStaticOptionItem("search-radio-options: item0", items.get(0), "일반", "1");
+        assertStaticOptionItem("search-radio-options: item1", items.get(1), "특수", "2");
+        assertStaticOptionItem("search-radio-options: item2", items.get(2), "기타", "3");
+
+        assertNoItemsetOrDataListOrScriptAnywhere("search-radio-options", result.getTargetElement());
+    }
+
+    /** payload list 저장 순서가 아니라 각 item이 들고 있는 명시적 rowOrdinal로 재정렬됨을
+     *  증명한다(이 파일의 다른 모든 order-independence 계약과 동일한 원칙). */
+    private static void testSearchAreaOptionItemsOrderedByAscendingRowOrdinalEvenIfShuffled() throws Exception {
+        Document doc = newDocument();
+        Element form = buildSearchAreaOptionFixture(doc, "Combo", "dsStatus", "CD", "NM",
+                new String[][] {{"A", "Alpha"}, {"B", "Beta"}, {"C", "Gamma"}});
+        RealPipelineResult built = runRealPipeline(form, "SEARCH_AREA");
+
+        List<TargetLeafPayload> tampered = new ArrayList<TargetLeafPayload>();
+        for (TargetLeafPayload item : built.payloads.get(0).getItems()) {
+            if (item.getCategory() == TargetPayloadCategory.CONTROL_TYPE) {
+                @SuppressWarnings("unchecked")
+                List<TargetOptionItem> optionItems =
+                        (List<TargetOptionItem>) item.getStructuredData().get("optionItems");
+                List<TargetOptionItem> shuffled = new ArrayList<TargetOptionItem>(optionItems);
+                Collections.reverse(shuffled);
+                Map<String, Object> data = new LinkedHashMap<String, Object>(item.getStructuredData());
+                data.put("optionItems", shuffled);
+                tampered.add(new TargetLeafPayload(item.getCategory(), item.getValue(), data,
+                        item.getSourceEvidenceKind(), item.getSourceComponentStructuralId()));
+            } else {
+                tampered.add(item);
+            }
+        }
+        TargetNodePayload tamperedPayload = new TargetNodePayload(
+                TargetNodeIdentityKind.SOURCE_STRUCTURAL, built.payloads.get(0).getPlanNodeId(), tampered);
+        AtomicRenderResult result = new AtomicWebSquareRenderer()
+                .render(built.plan, java.util.Arrays.asList(tamperedPayload)).get(0);
+        assertEquals("search-option-order: status", "RENDERED", String.valueOf(result.getStatus()));
+
+        List<Element> pairChildren = directChildren(directChildren(result.getTargetElement()).get(0));
+        Element control = pairChildren.get(1);
+        List<Element> items = directChildren(directChildren(control).get(0));
+        assertEquals("search-option-order: item count", "3", String.valueOf(items.size()));
+        assertStaticOptionItem(
+                "search-option-order: item0 (ascending rowOrdinal, not shuffled list order)",
+                items.get(0), "Alpha", "A");
+        assertStaticOptionItem("search-option-order: item1", items.get(1), "Beta", "B");
+        assertStaticOptionItem("search-option-order: item2", items.get(2), "Gamma", "C");
+    }
+
+    /** 항목 21(plain-control 회귀) -- option evidence가 전혀 없는 기존 plain Combo/Radio는
+     *  여전히 xf:choices 없이 빈 xf:select1로 그대로 렌더링된다(기존 동작 변화 없음). */
+    private static void testSearchAreaPlainComboAndRadioRenderNoStaticChoices() throws Exception {
+        Element comboControl = renderSingleControl("Combo");
+        assertEquals("search-plain-combo: no children (no xf:choices)", "0",
+                String.valueOf(directChildren(comboControl).size()));
+        Element radioControl = renderSingleControl("Radio");
+        assertEquals("search-plain-radio: no children (no xf:choices)", "0",
+                String.valueOf(directChildren(radioControl).size()));
+    }
+
+    private static TargetLeafPayload controlLeafWithOptionItems(
+            int row, int cell, int pair, String tag, List<?> optionItems) {
+        Map<String, Object> data = new LinkedHashMap<String, Object>();
+        data.put("rowIndex", Integer.valueOf(row));
+        data.put("cellIndexInRow", Integer.valueOf(cell));
+        data.put("pairIndexInRow", Integer.valueOf(pair));
+        data.put("optionItems", optionItems);
+        return new TargetLeafPayload(TargetPayloadCategory.CONTROL_TYPE, tag, data, "source_tag_name", "ctl0");
+    }
+
+    /** renderer는 payload list 순서를 신뢰하지 않고 rowOrdinal 기준 {@code TreeMap}으로 재정렬한다
+     *  -- 그 방어 로직이 실제로 중복 rowOrdinal(payload tampering)을 fail-closed하는지 확인한다. */
+    private static void testSearchAreaOptionItemsDuplicateRowOrdinalRejected() throws Exception {
+        RealPipelineResult built = basicSearchAreaPipeline();
+        List<TargetOptionItem> tamperedOptions = java.util.Arrays.asList(
+                new TargetOptionItem(0, "A", "Alpha"), new TargetOptionItem(0, "B", "Beta"));
+        AtomicRenderResult result = renderTamperedSearchArea(built, java.util.Arrays.asList(
+                labelLeaf(0, 0, 0), controlLeafWithOptionItems(0, 1, 0, "Combo", tamperedOptions)));
+        assertEquals("search-option-duplicate-row-ordinal: status", "INTEGRITY_VIOLATION",
+                String.valueOf(result.getStatus()));
+    }
+
+    /** rowOrdinal이 0..N-1로 dense하지 않으면(중간이 비어 있으면) fail-closed한다 --
+     *  fake item으로 구멍을 메우지 않는다. */
+    private static void testSearchAreaOptionItemsNonDenseRowOrdinalRejected() throws Exception {
+        RealPipelineResult built = basicSearchAreaPipeline();
+        List<TargetOptionItem> tamperedOptions = java.util.Arrays.asList(
+                new TargetOptionItem(0, "A", "Alpha"), new TargetOptionItem(2, "C", "Gamma"));
+        AtomicRenderResult result = renderTamperedSearchArea(built, java.util.Arrays.asList(
+                labelLeaf(0, 0, 0), controlLeafWithOptionItems(0, 1, 0, "Combo", tamperedOptions)));
+        assertEquals("search-option-non-dense-row-ordinal: status", "INTEGRITY_VIOLATION",
+                String.valueOf(result.getStatus()));
+    }
+
+    /** structuredData["optionItems"] 리스트 원소가 {@code TargetOptionItem}이 아니면(payload
+     *  tampering) fail-closed한다. */
+    private static void testSearchAreaOptionItemsWrongElementTypeRejected() throws Exception {
+        RealPipelineResult built = basicSearchAreaPipeline();
+        List<Object> tamperedOptions = java.util.Arrays.asList((Object) "not-an-option-item");
+        AtomicRenderResult result = renderTamperedSearchArea(built, java.util.Arrays.asList(
+                labelLeaf(0, 0, 0), controlLeafWithOptionItems(0, 1, 0, "Combo", tamperedOptions)));
+        assertEquals("search-option-wrong-element-type: status", "INTEGRITY_VIOLATION",
+                String.valueOf(result.getStatus()));
     }
 
     // ==== BUTTON_GROUP 원자적(atomic) 렌더링 ====

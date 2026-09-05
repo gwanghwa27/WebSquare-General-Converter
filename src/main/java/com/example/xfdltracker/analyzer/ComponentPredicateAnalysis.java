@@ -1,5 +1,7 @@
 package com.example.xfdltracker.analyzer;
 
+import com.example.xfdltracker.semantic.SourceOptionResolution;
+
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -114,12 +116,16 @@ public final class ComponentPredicateAnalysis {
         private final String sourceTagName;
         private final String textAttribute;
         private final String valueAttribute;
+        private final SourceOptionResolution optionResolution;
 
-        public TableCellFact(String structuralId, String sourceTagName, String textAttribute, String valueAttribute) {
+        public TableCellFact(
+                String structuralId, String sourceTagName, String textAttribute, String valueAttribute,
+                SourceOptionResolution optionResolution) {
             this.structuralId = structuralId;
             this.sourceTagName = sourceTagName;
             this.textAttribute = textAttribute;
             this.valueAttribute = valueAttribute;
+            this.optionResolution = optionResolution;
         }
 
         public String getStructuralId() { return structuralId; }
@@ -128,6 +134,9 @@ public final class ComponentPredicateAnalysis {
         public String getTextAttribute() { return textAttribute; }
         /** nullable -- source "value" 속성 원본 유지, 없으면 null. */
         public String getValueAttribute() { return valueAttribute; }
+        /** nullable -- Combo/Radio가 아니거나 option 선언 evidence가 전혀 없으면 null(기존 plain
+         *  control 동작 유지, Slice 102D). non-null이면 성공/실패 둘 중 하나의 resolve 결과다. */
+        public SourceOptionResolution getOptionResolution() { return optionResolution; }
     }
 
     public static final class ButtonGroupFacts {

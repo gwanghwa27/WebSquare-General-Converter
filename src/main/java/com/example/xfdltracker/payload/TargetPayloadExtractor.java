@@ -7,6 +7,9 @@ import com.example.xfdltracker.composition.TargetCompositionNode;
 import com.example.xfdltracker.composition.TargetCompositionPlan;
 import com.example.xfdltracker.converter.GridFormatParser;
 import com.example.xfdltracker.semantic.SemanticRegionResult;
+import com.example.xfdltracker.semantic.SourceOptionItem;
+import com.example.xfdltracker.semantic.SourceOptionResolution;
+import com.example.xfdltracker.semantic.SourceOptionSetEvidence;
 import com.example.xfdltracker.semantic.SourcePayloadEvidenceItem;
 import com.example.xfdltracker.semantic.SourceStructuralIdentity;
 import org.w3c.dom.Element;
@@ -328,12 +331,48 @@ public final class TargetPayloadExtractor {
                     structuredData.put("cellIndexInRow", item.getCellIndexInRow());
                     structuredData.put("pairIndexInRow", item.getPairIndexInRow());
                 }
+                // Slice 102D -- SEARCH_AREA_EXTERNAL_FORM_LOCAL_LITERAL_DATASET_SUBSET. BUSINESS_TABLE은
+                // 같은 evidence producer를 공유하지만 이 Slice의 지원 범위가 아니므로 family로 gate한다.
+                if ("SEARCH_AREA".equals(family) && "control".equals(item.getEvidenceRole())) {
+                    applySearchAreaOptionEvidence(region, item, structuredData);
+                }
                 items.add(new TargetLeafPayload(
                         category, item.getValue(), structuredData, item.getEvidenceKind(),
                         item.getSourceComponentStructuralId()));
             }
         }
         return items;
+    }
+
+    /**
+     * narrow option subset(Slice 102D) -- Combo/Radio control의 option resolve 결과 중 성공만
+     * target-lane {@link TargetOptionItem} 목록으로 structuredData에 싣는다. 실패는 renderer에게
+     * 떠넘기지 않고 여기서 fail-closed하며, evidence 자체가 없으면 아무 것도 하지 않는다(plain 유지).
+     */
+    private void applySearchAreaOptionEvidence(
+            SemanticRegionResult region, SourcePayloadEvidenceItem item, Map<String, Object> structuredData) {
+        SourceOptionResolution resolution =
+                region.getOptionResolutionBySourceComponentStructuralId().get(item.getSourceComponentStructuralId());
+        if (resolution == null) {
+            return;
+        }
+        if (!resolution.isResolved()) {
+            throw new IllegalStateException(
+                    "target_payload_extractor: SEARCH_AREA control option declaration does not satisfy the "
+                            + "SEARCH_AREA_EXTERNAL_FORM_LOCAL_LITERAL_DATASET_SUBSET narrow contract -- refusing "
+                            + "to render as an empty/plain select (" + resolution.getFailureReason()
+                            + ":sourceComponentStructuralId=" + item.getSourceComponentStructuralId() + ")");
+        }
+        SourceOptionSetEvidence evidence = resolution.getEvidence();
+        List<TargetOptionItem> optionItems = new ArrayList<TargetOptionItem>();
+        for (SourceOptionItem sourceItem : evidence.getItems()) {
+            optionItems.add(new TargetOptionItem(
+                    sourceItem.getRowOrdinal(), sourceItem.getValue(), sourceItem.getLabel()));
+        }
+        structuredData.put("optionItems", Collections.unmodifiableList(optionItems));
+        // source Dataset provenance -- validation/audit 전용이다. renderer는 target identity를
+        // 이 값으로부터 추론하지 않는다(target DataCollection identity 자체가 필요 없음, Slice 102D).
+        structuredData.put("sourceOptionDatasetId", evidence.getSourceDatasetId());
     }
 
     /**

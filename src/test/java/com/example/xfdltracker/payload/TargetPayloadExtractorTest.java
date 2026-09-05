@@ -67,6 +67,9 @@ public class TargetPayloadExtractorTest {
         testSearchAreaPayloadFromEvidenceOnly();
         testSearchAreaWrapperNormalizationEvidenceUsesPredicateLeaf();
         testSearchAreaNoEmissionMeansNoEvidence();
+        testSearchAreaOptionEvidenceExtractedForComboAndRadio();
+        testSearchAreaOptionResolutionFailureThrowsWithEmbeddedReason();
+        testBusinessTableNeverPopulatesOptionItemsRegardlessOfResolutionOutcome();
         testBusinessTablePayloadFromEvidenceOnly();
         testBindingCollisionNeverGuessed();
 
@@ -1822,6 +1825,307 @@ public class TargetPayloadExtractorTest {
                     !"SEARCH_AREA".equals(region.getSemanticType()) && !"BUSINESS_TABLE".equals(region.getSemanticType()));
         }
         assertEquals("no_emission: no regions at all for this fixture", "0", String.valueOf(regions.size()));
+    }
+
+    /**
+     * narrow option subset을 만족하는 Combo/Radio는 structuredData["optionItems"]/
+     * ["sourceOptionDatasetId"]로 target-lane evidence가 그대로 투영된다(재조회 없이 한 번만
+     * materialize). Combo와 Radio를 각각 독립적으로 검증한다.
+     */
+    private static void testSearchAreaOptionEvidenceExtractedForComboAndRadio() throws Exception {
+        Document doc = newDocument();
+        Element form = doc.createElement("Form");
+        doc.appendChild(form);
+
+        Element objects = doc.createElement("Objects");
+        objects.appendChild(buildOptionDataset(doc, "dsStatus", "CD", "NM",
+                new String[][] {{"A", "사용"}, {"B", "미사용"}}));
+        objects.appendChild(buildOptionDataset(doc, "dsType", "CODE", "NAME",
+                new String[][] {{"1", "일반"}}));
+        form.appendChild(objects);
+
+        Element search = doc.createElement("Div");
+        search.setAttribute("id", "search1");
+        Element label1 = doc.createElement("Static");
+        label1.setAttribute("id", "lbl1");
+        label1.setAttribute("text", "상태");
+        label1.setAttribute("left", "0");
+        label1.setAttribute("top", "0");
+        label1.setAttribute("width", "50");
+        label1.setAttribute("height", "20");
+        Element combo1 = doc.createElement("Combo");
+        combo1.setAttribute("id", "comboStatus");
+        combo1.setAttribute("innerdataset", "dsStatus");
+        combo1.setAttribute("codecolumn", "CD");
+        combo1.setAttribute("datacolumn", "NM");
+        combo1.setAttribute("left", "60");
+        combo1.setAttribute("top", "0");
+        combo1.setAttribute("width", "100");
+        combo1.setAttribute("height", "20");
+        Element label2 = doc.createElement("Static");
+        label2.setAttribute("id", "lbl2");
+        label2.setAttribute("text", "종류");
+        label2.setAttribute("left", "0");
+        label2.setAttribute("top", "30");
+        label2.setAttribute("width", "50");
+        label2.setAttribute("height", "20");
+        Element radio1 = doc.createElement("Radio");
+        radio1.setAttribute("id", "radioType");
+        radio1.setAttribute("innerdataset", "dsType");
+        radio1.setAttribute("codecolumn", "CODE");
+        radio1.setAttribute("datacolumn", "NAME");
+        radio1.setAttribute("left", "60");
+        radio1.setAttribute("top", "30");
+        radio1.setAttribute("width", "100");
+        radio1.setAttribute("height", "20");
+        search.appendChild(label1);
+        search.appendChild(combo1);
+        search.appendChild(label2);
+        search.appendChild(radio1);
+        form.appendChild(search);
+        form.appendChild(buildMinimalGridPeer(doc));
+
+        List<SemanticRegionResult> regions = new SemanticRegionSegmenter().segment(form);
+        SemanticRegionResult searchArea = null;
+        for (SemanticRegionResult region : regions) {
+            if ("SEARCH_AREA".equals(region.getSemanticType())) {
+                searchArea = region;
+            }
+        }
+        assertTrue("search_area_option_extraction: SEARCH_AREA region found", searchArea != null);
+
+        CompositionEvaluator evaluator = new CompositionEvaluator();
+        List<CompositionDecision> decisions = new ArrayList<CompositionDecision>();
+        for (SemanticRegionResult region : regions) {
+            decisions.add(evaluator.evaluate(region));
+        }
+        TargetCompositionPlan plan = new TargetCompositionPlanBuilder().build(decisions);
+        List<TargetNodePayload> payloads = extractWithBindings(form, plan, regions);
+        TargetNodePayload payload = findPayload(payloads, structuralIdOf(search));
+        assertTrue("search_area_option_extraction: payload present", payload != null);
+
+        boolean sawComboOptions = false;
+        boolean sawRadioOptions = false;
+        for (TargetLeafPayload item : payload.getItems()) {
+            if (item.getCategory() != TargetPayloadCategory.CONTROL_TYPE) {
+                continue;
+            }
+            if (structuralIdOf(combo1).equals(item.getSourceComponentStructuralId())) {
+                sawComboOptions = true;
+                assertEquals("search_area_option_extraction: combo sourceOptionDatasetId",
+                        "dsStatus", String.valueOf(item.getStructuredData().get("sourceOptionDatasetId")));
+                @SuppressWarnings("unchecked")
+                List<TargetOptionItem> optionItems =
+                        (List<TargetOptionItem>) item.getStructuredData().get("optionItems");
+                assertTrue("search_area_option_extraction: combo optionItems present", optionItems != null);
+                assertEquals("search_area_option_extraction: combo optionItems size",
+                        "2", String.valueOf(optionItems.size()));
+                assertEquals("search_area_option_extraction: combo item0 rowOrdinal",
+                        "0", String.valueOf(optionItems.get(0).getRowOrdinal()));
+                assertEquals("search_area_option_extraction: combo item0 value", "A", optionItems.get(0).getValue());
+                assertEquals("search_area_option_extraction: combo item0 label", "사용", optionItems.get(0).getLabel());
+                assertEquals("search_area_option_extraction: combo item1 rowOrdinal",
+                        "1", String.valueOf(optionItems.get(1).getRowOrdinal()));
+                assertEquals("search_area_option_extraction: combo item1 value", "B", optionItems.get(1).getValue());
+                assertEquals("search_area_option_extraction: combo item1 label", "미사용", optionItems.get(1).getLabel());
+            }
+            if (structuralIdOf(radio1).equals(item.getSourceComponentStructuralId())) {
+                sawRadioOptions = true;
+                assertEquals("search_area_option_extraction: radio sourceOptionDatasetId",
+                        "dsType", String.valueOf(item.getStructuredData().get("sourceOptionDatasetId")));
+                @SuppressWarnings("unchecked")
+                List<TargetOptionItem> optionItems =
+                        (List<TargetOptionItem>) item.getStructuredData().get("optionItems");
+                assertTrue("search_area_option_extraction: radio optionItems present", optionItems != null);
+                assertEquals("search_area_option_extraction: radio optionItems size",
+                        "1", String.valueOf(optionItems.size()));
+                assertEquals("search_area_option_extraction: radio item0 value", "1", optionItems.get(0).getValue());
+                assertEquals("search_area_option_extraction: radio item0 label", "일반", optionItems.get(0).getLabel());
+            }
+        }
+        assertTrue("search_area_option_extraction: combo optionItems observed", sawComboOptions);
+        assertTrue("search_area_option_extraction: radio optionItems observed", sawRadioOptions);
+    }
+
+    /**
+     * narrow contract를 만족하지 못하는 Combo(예: innerdataset이 가리키는 Dataset이 없음)는
+     * 빈/plain select로 강등되지 않고, deterministic reason이 담긴 IllegalStateException으로
+     * fail-closed해야 한다.
+     */
+    private static void testSearchAreaOptionResolutionFailureThrowsWithEmbeddedReason() throws Exception {
+        Document doc = newDocument();
+        Element form = doc.createElement("Form");
+        doc.appendChild(form);
+
+        Element search = doc.createElement("Div");
+        search.setAttribute("id", "search1");
+        Element label1 = doc.createElement("Static");
+        label1.setAttribute("id", "lbl1");
+        label1.setAttribute("text", "상태");
+        label1.setAttribute("left", "0");
+        label1.setAttribute("top", "0");
+        label1.setAttribute("width", "50");
+        label1.setAttribute("height", "20");
+        Element combo1 = doc.createElement("Combo");
+        combo1.setAttribute("id", "comboStatus");
+        combo1.setAttribute("innerdataset", "dsNotThere");
+        combo1.setAttribute("codecolumn", "CD");
+        combo1.setAttribute("datacolumn", "NM");
+        combo1.setAttribute("left", "60");
+        combo1.setAttribute("top", "0");
+        combo1.setAttribute("width", "100");
+        combo1.setAttribute("height", "20");
+        search.appendChild(label1);
+        search.appendChild(combo1);
+        form.appendChild(search);
+        form.appendChild(buildMinimalGridPeer(doc));
+
+        List<SemanticRegionResult> regions = new SemanticRegionSegmenter().segment(form);
+        CompositionEvaluator evaluator = new CompositionEvaluator();
+        List<CompositionDecision> decisions = new ArrayList<CompositionDecision>();
+        for (SemanticRegionResult region : regions) {
+            decisions.add(evaluator.evaluate(region));
+        }
+        final TargetCompositionPlan plan = new TargetCompositionPlanBuilder().build(decisions);
+        final List<SemanticRegionResult> finalRegions = regions;
+
+        try {
+            extractWithBindings(form, plan, finalRegions);
+            failures++;
+            System.out.println("[FAIL] search_area_option_failure: expected IllegalStateException but none "
+                    + "was thrown");
+        } catch (IllegalStateException e) {
+            if (e.getMessage().contains("search_area_option_dataset_missing")) {
+                System.out.println("[PASS] search_area_option_failure: explicit failure -- " + e.getMessage());
+            } else {
+                failures++;
+                System.out.println("[FAIL] search_area_option_failure: failed for the wrong reason -- "
+                        + e.getMessage());
+            }
+        }
+    }
+
+    /**
+     * option resolution은 공유 evidence-producer에서 항상 계산되지만 BUSINESS_TABLE family는 절대
+     * 소비하지 않는다. 성공/실패 evidence를 섞어도 BUSINESS_TABLE 추출은 예외 없이 성공하고,
+     * structuredData에 "optionItems"가 나타나지 않아야 한다.
+     */
+    private static void testBusinessTableNeverPopulatesOptionItemsRegardlessOfResolutionOutcome() throws Exception {
+        Document doc = newDocument();
+        Element form = doc.createElement("Form");
+        doc.appendChild(form);
+
+        Element objects = doc.createElement("Objects");
+        objects.appendChild(buildOptionDataset(doc, "dsStatus", "CD", "NM",
+                new String[][] {{"A", "사용"}}));
+        form.appendChild(objects);
+
+        Element container = doc.createElement("Div");
+        container.setAttribute("id", "table1");
+        Element label1 = doc.createElement("Static");
+        label1.setAttribute("id", "lbl1");
+        label1.setAttribute("text", "상태");
+        label1.setAttribute("left", "0");
+        label1.setAttribute("top", "0");
+        label1.setAttribute("width", "50");
+        label1.setAttribute("height", "20");
+        Element comboValid = doc.createElement("Combo");
+        comboValid.setAttribute("id", "comboValid");
+        comboValid.setAttribute("innerdataset", "dsStatus");
+        comboValid.setAttribute("codecolumn", "CD");
+        comboValid.setAttribute("datacolumn", "NM");
+        comboValid.setAttribute("left", "60");
+        comboValid.setAttribute("top", "0");
+        comboValid.setAttribute("width", "100");
+        comboValid.setAttribute("height", "20");
+        Element label2 = doc.createElement("Static");
+        label2.setAttribute("id", "lbl2");
+        label2.setAttribute("text", "종류");
+        label2.setAttribute("left", "0");
+        label2.setAttribute("top", "30");
+        label2.setAttribute("width", "50");
+        label2.setAttribute("height", "20");
+        Element comboBroken = doc.createElement("Combo");
+        comboBroken.setAttribute("id", "comboBroken");
+        comboBroken.setAttribute("innerdataset", "dsNotThere");
+        comboBroken.setAttribute("codecolumn", "CD");
+        comboBroken.setAttribute("datacolumn", "NM");
+        comboBroken.setAttribute("left", "60");
+        comboBroken.setAttribute("top", "30");
+        comboBroken.setAttribute("width", "100");
+        comboBroken.setAttribute("height", "20");
+        // scope 안에 Grid peer가 없어 BUSINESS_TABLE로 분류된다(SEARCH_AREA가 아님).
+        container.appendChild(label1);
+        container.appendChild(comboValid);
+        container.appendChild(label2);
+        container.appendChild(comboBroken);
+        form.appendChild(container);
+
+        List<SemanticRegionResult> regions = new SemanticRegionSegmenter().segment(form);
+        SemanticRegionResult businessTable = null;
+        for (SemanticRegionResult region : regions) {
+            if ("BUSINESS_TABLE".equals(region.getSemanticType())) {
+                businessTable = region;
+            }
+        }
+        assertTrue("business_table_option_gating: BUSINESS_TABLE region found (not SEARCH_AREA)",
+                businessTable != null);
+
+        CompositionEvaluator evaluator = new CompositionEvaluator();
+        List<CompositionDecision> decisions = new ArrayList<CompositionDecision>();
+        for (SemanticRegionResult region : regions) {
+            decisions.add(evaluator.evaluate(region));
+        }
+        TargetCompositionPlan plan = new TargetCompositionPlanBuilder().build(decisions);
+        List<TargetNodePayload> payloads = extractWithBindings(form, plan, regions);
+        TargetNodePayload payload = findPayload(payloads, structuralIdOf(container));
+        assertTrue("business_table_option_gating: payload present (no exception despite broken evidence)",
+                payload != null);
+
+        int controlTypeCount = 0;
+        for (TargetLeafPayload item : payload.getItems()) {
+            if (item.getCategory() != TargetPayloadCategory.CONTROL_TYPE) {
+                continue;
+            }
+            controlTypeCount++;
+            assertTrue("business_table_option_gating: structuredData never carries optionItems ("
+                            + item.getSourceComponentStructuralId() + ")",
+                    !item.getStructuredData().containsKey("optionItems"));
+            assertTrue("business_table_option_gating: structuredData never carries sourceOptionDatasetId ("
+                            + item.getSourceComponentStructuralId() + ")",
+                    !item.getStructuredData().containsKey("sourceOptionDatasetId"));
+        }
+        assertEquals("business_table_option_gating: both CONTROL_TYPE items present",
+                "2", String.valueOf(controlTypeCount));
+    }
+
+    private static Element buildOptionDataset(
+            Document doc, String datasetId, String codeColId, String dataColId, String[][] rowsData) {
+        Element dataset = doc.createElement("Dataset");
+        dataset.setAttribute("id", datasetId);
+        Element columnInfo = doc.createElement("ColumnInfo");
+        Element codeColumn = doc.createElement("Column");
+        codeColumn.setAttribute("id", codeColId);
+        Element dataColumn = doc.createElement("Column");
+        dataColumn.setAttribute("id", dataColId);
+        columnInfo.appendChild(codeColumn);
+        columnInfo.appendChild(dataColumn);
+        dataset.appendChild(columnInfo);
+        Element rows = doc.createElement("Rows");
+        for (String[] rowData : rowsData) {
+            Element row = doc.createElement("Row");
+            Element codeCol = doc.createElement("Col");
+            codeCol.setAttribute("id", codeColId);
+            codeCol.setTextContent(rowData[0]);
+            Element dataCol = doc.createElement("Col");
+            dataCol.setAttribute("id", dataColId);
+            dataCol.setTextContent(rowData[1]);
+            row.appendChild(codeCol);
+            row.appendChild(dataCol);
+            rows.appendChild(row);
+        }
+        dataset.appendChild(rows);
+        return dataset;
     }
 
     /**

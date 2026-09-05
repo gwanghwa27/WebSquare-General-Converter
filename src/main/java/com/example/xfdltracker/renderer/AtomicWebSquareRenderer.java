@@ -7,6 +7,7 @@ import com.example.xfdltracker.composition.TargetNodeIdentityKind;
 import com.example.xfdltracker.payload.TargetEventBinding;
 import com.example.xfdltracker.payload.TargetLeafPayload;
 import com.example.xfdltracker.payload.TargetNodePayload;
+import com.example.xfdltracker.payload.TargetOptionItem;
 import com.example.xfdltracker.payload.TargetPayloadCategory;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
@@ -793,6 +794,9 @@ public final class AtomicWebSquareRenderer {
     private static final class SearchAreaPair {
         String labelText;
         String controlSourceTagName;
+        /** nullable -- Slice 102D. option 선언이 없거나 이 control이 Combo/Radio가 아니면 null
+         *  (기존 plain control 동작 유지). */
+        List<TargetOptionItem> controlOptionItems;
     }
 
     /**
@@ -856,6 +860,7 @@ public final class AtomicWebSquareRenderer {
                             "control_type_value_missing:row=" + rowIndex + ":pair=" + pairIndexInRow);
                 }
                 pair.controlSourceTagName = item.getValue();
+                pair.controlOptionItems = readOptionItemsIfPresent(item);
             }
         }
 
@@ -886,6 +891,46 @@ public final class AtomicWebSquareRenderer {
     }
 
     /**
+     * structuredData의 "optionItems"를 읽어 list 저장 순서가 아니라 각 item의 {@code rowOrdinal}로
+     * 재정렬한다(payload list 순서 불신 원칙). 키가 0..N-1 dense/unique하지 않으면 fail-closed하며,
+     * 키 자체가 없으면 null(plain control 유지).
+     */
+    private List<TargetOptionItem> readOptionItemsIfPresent(TargetLeafPayload item) {
+        Object raw = item.getStructuredData().get("optionItems");
+        if (raw == null) {
+            return null;
+        }
+        if (!(raw instanceof List)) {
+            throw new SearchAreaStructuralViolation(
+                    "malformed_structured_data:optionItems:" + raw.getClass().getSimpleName());
+        }
+        TreeMap<Integer, TargetOptionItem> byRowOrdinal = new TreeMap<Integer, TargetOptionItem>();
+        for (Object element : (List<?>) raw) {
+            if (!(element instanceof TargetOptionItem)) {
+                throw new SearchAreaStructuralViolation(
+                        "malformed_structured_data:optionItems_element:"
+                                + (element == null ? "null" : element.getClass().getSimpleName()));
+            }
+            TargetOptionItem optionItem = (TargetOptionItem) element;
+            if (byRowOrdinal.put(Integer.valueOf(optionItem.getRowOrdinal()), optionItem) != null) {
+                throw new SearchAreaStructuralViolation(
+                        "malformed_structured_data:optionItems_duplicate_row_ordinal:"
+                                + optionItem.getRowOrdinal());
+            }
+        }
+        if (byRowOrdinal.isEmpty()) {
+            throw new SearchAreaStructuralViolation("malformed_structured_data:optionItems_empty");
+        }
+        for (int expected = 0; expected < byRowOrdinal.size(); expected++) {
+            if (!byRowOrdinal.containsKey(Integer.valueOf(expected))) {
+                throw new SearchAreaStructuralViolation(
+                        "malformed_structured_data:optionItems_not_dense:missing_row_ordinal=" + expected);
+            }
+        }
+        return new ArrayList<TargetOptionItem>(byRowOrdinal.values());
+    }
+
+    /**
      * frozen v1 target DOM: root {@code xf:group}, 행마다 자식 {@code xf:group}, pair마다
      * label + control(label이 먼저). BUSINESS_TABLE 구조/source CSS class 재구성 없음.
      */
@@ -902,7 +947,8 @@ public final class AtomicWebSquareRenderer {
                 Element label = doc.createElementNS(NS_W2, "w2:textbox");
                 label.setTextContent(pair.labelText);
                 rowGroup.appendChild(label);
-                rowGroup.appendChild(buildSearchAreaControlElement(doc, pair.controlSourceTagName));
+                rowGroup.appendChild(
+                        buildSearchAreaControlElement(doc, pair.controlSourceTagName, pair.controlOptionItems));
             }
         }
         return root;
@@ -913,23 +959,49 @@ public final class AtomicWebSquareRenderer {
      * 동등성 미증명(Slice 99E)으로 여기서도 defense-in-depth 거부한다(primary fail-closed는 이보다
      * 앞서 {@code TargetPayloadExtractor}에서 발생). 다른 미지원 값도 재해석 없이 fail-closed한다.
      */
-    private Element buildSearchAreaControlElement(Document doc, String sourceTagName) {
+    private Element buildSearchAreaControlElement(
+            Document doc, String sourceTagName, List<TargetOptionItem> optionItems) {
         if ("Edit".equals(sourceTagName)) {
             return doc.createElementNS(NS_XF, "xf:input");
         } else if ("Combo".equals(sourceTagName)) {
             Element select1 = doc.createElementNS(NS_XF, "xf:select1");
             select1.setAttribute("appearance", "minimal");
+            appendStaticChoicesIfPresent(doc, select1, optionItems);
             return select1;
         } else if ("Calendar".equals(sourceTagName)) {
             return doc.createElementNS(NS_W2, "w2:inputCalendar");
         } else if ("Radio".equals(sourceTagName)) {
             Element select1 = doc.createElementNS(NS_XF, "xf:select1");
             select1.setAttribute("appearance", "full");
+            appendStaticChoicesIfPresent(doc, select1, optionItems);
             return select1;
         } else if ("CheckBox".equals(sourceTagName)) {
             throw new SearchAreaStructuralViolation("checkbox_unbound_rendering_equivalence_not_proven");
         }
         throw new SearchAreaStructuralViolation("unsupported_control_type:" + sourceTagName);
+    }
+
+    /**
+     * WebSquare AI 6.0 공식 static item contract(xf:choices/xf:item/xf:label/xf:value)만
+     * 사용한다 -- DataList/xf:itemset/runtime script는 만들지 않고 source DOM도 다시 읽지 않는다
+     * (이미 materialize된 {@code TargetOptionItem}만 소비). null이면 아무것도 추가하지 않는다.
+     */
+    private void appendStaticChoicesIfPresent(Document doc, Element select1, List<TargetOptionItem> optionItems) {
+        if (optionItems == null) {
+            return;
+        }
+        Element choices = doc.createElementNS(NS_XF, "xf:choices");
+        select1.appendChild(choices);
+        for (TargetOptionItem optionItem : optionItems) {
+            Element item = doc.createElementNS(NS_XF, "xf:item");
+            choices.appendChild(item);
+            Element label = doc.createElementNS(NS_XF, "xf:label");
+            label.setTextContent(optionItem.getLabel());
+            item.appendChild(label);
+            Element value = doc.createElementNS(NS_XF, "xf:value");
+            value.setTextContent(optionItem.getValue());
+            item.appendChild(value);
+        }
     }
 
     /** 내부 fail-fast 신호 -- {@code renderSearchAreaNode}가 던지고 스스로 잡는다. */

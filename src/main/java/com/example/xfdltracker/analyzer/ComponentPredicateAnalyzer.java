@@ -13,6 +13,7 @@ import com.example.xfdltracker.converter.ComponentLayoutConverter;
 import com.example.xfdltracker.mapping.ComponentMappingRegistry;
 import com.example.xfdltracker.model.EventBinding;
 import com.example.xfdltracker.model.XfdlAnalysisResult;
+import com.example.xfdltracker.semantic.SourceOptionResolution;
 import com.example.xfdltracker.semantic.SourceStructuralIdentity;
 
 import org.w3c.dom.Element;
@@ -249,9 +250,15 @@ public final class ComponentPredicateAnalyzer {
         for (List<Element> row : rows) {
             List<TableCellFact> rowFacts = new ArrayList<TableCellFact>();
             for (Element cell : row) {
+                String tag = sourceTagName(cell);
+                // Combo/Radio만 option 선언을 가질 수 있다. 이 시점엔 SEARCH_AREA/BUSINESS_TABLE
+                // 분류가 아직 안 끝났으므로(GRID peer 판정은 이후) family와 무관하게 항상 계산한다
+                // -- family별 소비/강제는 TargetPayloadExtractor가 결정한다.
+                SourceOptionResolution optionResolution = ("Combo".equals(tag) || "Radio".equals(tag))
+                        ? SourceOptionSetResolver.resolve(cell) : null;
                 rowFacts.add(new TableCellFact(
-                        SourceStructuralIdentity.build(cell), sourceTagName(cell),
-                        nullableAttribute(cell, "text"), nullableAttribute(cell, "value")));
+                        SourceStructuralIdentity.build(cell), tag,
+                        nullableAttribute(cell, "text"), nullableAttribute(cell, "value"), optionResolution));
             }
             snapshot.add(rowFacts);
         }
