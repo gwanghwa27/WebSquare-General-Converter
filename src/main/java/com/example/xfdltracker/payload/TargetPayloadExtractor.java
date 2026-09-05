@@ -659,6 +659,11 @@ public final class TargetPayloadExtractor {
         return false;
     }
 
+    /** Slice 102F -- 단일 Format Grid에 binddataset/body bind: 증거가 있는데 target DataList
+     * binding 계약이 없을 때 쓰는 고정 fail-closed reason(count 등 동적 접미사 없음). */
+    private static final String GRID_BINDING_CONTRACT_NOT_IMPLEMENTED_REASON =
+            "grid_single_format_binding_contract_not_implemented";
+
     /**
      * GRID: {@code GridFormatParser}를 그대로 재사용한다(새 파서 없음). head/body/summ band의
      * 모든 Cell을 GRID_COLUMN leaf 하나씩으로 옮긴다 -- Cell이 제공하는 필드만 담는다.
@@ -681,10 +686,32 @@ public final class TargetPayloadExtractor {
             return items;
         }
         GridFormatParser.GridFormat format = selection.getFormat();
+        requireGridSingleFormatBindingContractProven(gridElement, format);
         addGridCells(items, "head", format.getHeadCells());
         addGridCells(items, "body", format.getBodyCells());
         addGridCells(items, "summ", format.getSummCells());
         return items;
+    }
+
+    /** Slice 102F correction -- resolved 단일 Format Grid에 binddataset(non-empty) 또는 body
+     * Cell의 raw(trim 안 된) source text가 정확한 "bind:" prefix로 시작하면, target DataList
+     * binding 계약이 없으므로 렌더러 도달 전에 명시적으로 fail-closed한다(header/summ 제외). */
+    private void requireGridSingleFormatBindingContractProven(Element gridElement, GridFormatParser.GridFormat format) {
+        boolean bindDatasetPresent = gridElement.getAttribute("binddataset").length() > 0;
+        boolean bodyBindTextPresent = false;
+        for (GridFormatParser.CellDef cell : format.getBodyCells()) {
+            if (cell.getRawText().startsWith("bind:")) {
+                bodyBindTextPresent = true;
+                break;
+            }
+        }
+        if (bindDatasetPresent || bodyBindTextPresent) {
+            throw new IllegalStateException(
+                    "target_payload_extractor: GRID has proven Dataset binding evidence (binddataset "
+                            + "and/or body bind: expression) with no proven target DataList binding "
+                            + "contract -- refusing to emit an empty-shell success ("
+                            + GRID_BINDING_CONTRACT_NOT_IMPLEMENTED_REASON + ")");
+        }
     }
 
     private void addGridCells(List<TargetLeafPayload> items, String band, List<GridFormatParser.CellDef> cells) {

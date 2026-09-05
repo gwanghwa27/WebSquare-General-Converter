@@ -8,6 +8,7 @@ import com.example.xfdltracker.composition.CompositionEvaluator;
 import com.example.xfdltracker.composition.TargetCompositionNode;
 import com.example.xfdltracker.composition.TargetCompositionPlan;
 import com.example.xfdltracker.composition.TargetCompositionPlanBuilder;
+import com.example.xfdltracker.converter.GridFormatParser;
 import com.example.xfdltracker.model.EventBinding;
 import com.example.xfdltracker.model.XfdlAnalysisResult;
 import com.example.xfdltracker.semantic.SemanticRegionResult;
@@ -136,6 +137,22 @@ public class TargetPayloadExtractorTest {
         testNonButtonGroupPayloadHasNullExpectedStructuralMemberCount();
 
         testGridAmbiguousMultiFormatFailsClosedBeforeRenderer();
+
+        testGridCellRawTextPreservesWhitespaceWhileNormalizedTextTrims();
+        testGridBindDatasetOnlyFailsClosedWithNewReason();
+        testGridBodyBindTextOnlyFailsClosedWithNewReason();
+        testGridBindDatasetAndBodyBindCombinationFailsClosedWithSameReason();
+        testGridEmptyBindDatasetDoesNotTriggerGuard();
+        testGridBodyExprTextDoesNotTriggerGuard();
+        testGridHeaderBindTextDoesNotTriggerGuard();
+        testGridBodyBindTextLeadingSpaceDoesNotTriggerGuard();
+        testGridBodyBindTextLeadingTabDoesNotTriggerGuard();
+        testGridBodyBindTextMixedCaseDoesNotTriggerGuard();
+        testGridBodyBindTextUpperCaseDoesNotTriggerGuard();
+        testGridBodyBindTextTrailingContentStillTriggersGuard();
+        testGridMinimalNonBindingSingleFormatDoesNotTriggerGuard();
+        testGridNoFormatDefinitionWithBindDatasetUnaffectedByGuard();
+        testGridMultiFormatWithBindDatasetStillReportsAmbiguousReasonFirst();
 
         testCheckBoxDatasetBoundBusinessTableFailsClosedBeforeRenderer();
         testCheckBoxDatasetBoundSearchAreaStructurallyDifferentFixtureFailsClosed();
@@ -304,7 +321,9 @@ public class TargetPayloadExtractorTest {
         Element bodyCell1 = doc.createElement("Cell");
         bodyCell1.setAttribute("col", "0");
         bodyCell1.setAttribute("row", "0");
-        bodyCell1.setAttribute("text", "bind:col1");
+        // Slice 102F -- "bind:"로 시작하면 새 GRID binding fail-closed guard(trigger B)가
+        // 반응하므로, 이 grid1은 순수 구조적 peer 용도이니 "expr:" prefix로 바꿔 guard를 피한다.
+        bodyCell1.setAttribute("text", "expr:col1");
         bodyBand.appendChild(bodyCell1);
         format.appendChild(headBand);
         format.appendChild(bodyBand);
@@ -514,18 +533,20 @@ public class TargetPayloadExtractorTest {
         assertTrue("grid: payload present", payload != null);
         assertEquals("grid: item count (2 head + 1 body)", "3", String.valueOf(payload.getItems().size()));
         boolean sawHeadName = false;
-        boolean sawBodyBind = false;
+        boolean sawBodyExpr = false;
         for (TargetLeafPayload item : payload.getItems()) {
             assertEquals("grid: category", "GRID_COLUMN", item.getCategory().name());
             if ("head".equals(item.getStructuredData().get("band")) && "이름".equals(item.getValue())) {
                 sawHeadName = true;
             }
-            if ("body".equals(item.getStructuredData().get("band")) && "bind:col1".equals(item.getValue())) {
-                sawBodyBind = true;
+            if ("body".equals(item.getStructuredData().get("band")) && "expr:col1".equals(item.getValue())) {
+                sawBodyExpr = true;
             }
         }
         assertTrue("grid: head cell text present", sawHeadName);
-        assertTrue("grid: body cell raw text present (payload does not interpret bind: prefix)", sawBodyBind);
+        // Slice 102F -- expr: prefix는 새 binding fail-closed guard의 trigger가 아니므로(bind:만
+        // trigger), 이 fixture는 payload가 raw text를 그대로 보존함(해석하지 않음)을 여전히 증명한다.
+        assertTrue("grid: body cell raw text present (payload does not interpret expr: prefix)", sawBodyExpr);
     }
 
     /**
@@ -548,6 +569,227 @@ public class TargetPayloadExtractorTest {
                 extractWithBindings(form, fx.plan, fx.regions);
             }
         });
+    }
+
+    // ==== Slice 102F -- GRID 단일 Format Dataset Binding Fail-Closed Guard 테스트 ====
+
+    private static final String GRID_BINDING_CONTRACT_NOT_IMPLEMENTED_REASON =
+            "grid_single_format_binding_contract_not_implemented";
+
+    /** exact 단일 Format Grid 하나만 담은 Form. bindDatasetValue가 null이면 binddataset
+     * attribute 자체를 설정하지 않고, non-null이면(빈 문자열 포함) 그 값 그대로 설정한다. */
+    private static Element buildSingleFormatGridOnlyForm(
+            Document doc, String bindDatasetValue, String headCellText, String bodyCellText) {
+        Element form = doc.createElement("Form");
+        doc.appendChild(form);
+        Element grid = doc.createElement("Grid");
+        grid.setAttribute("id", "gridBindingCheck");
+        if (bindDatasetValue != null) {
+            grid.setAttribute("binddataset", bindDatasetValue);
+        }
+        Element formats = doc.createElement("Formats");
+        Element format = doc.createElement("Format");
+        format.setAttribute("id", "default");
+        Element columns = doc.createElement("Columns");
+        Element col1 = doc.createElement("Column");
+        col1.setAttribute("size", "80");
+        columns.appendChild(col1);
+        format.appendChild(columns);
+        Element headBand = doc.createElement("Band");
+        headBand.setAttribute("id", "head");
+        Element headCell1 = doc.createElement("Cell");
+        headCell1.setAttribute("col", "0");
+        headCell1.setAttribute("row", "0");
+        headCell1.setAttribute("text", headCellText);
+        headBand.appendChild(headCell1);
+        Element bodyBand = doc.createElement("Band");
+        bodyBand.setAttribute("id", "body");
+        Element bodyCell1 = doc.createElement("Cell");
+        bodyCell1.setAttribute("col", "0");
+        bodyCell1.setAttribute("row", "0");
+        bodyCell1.setAttribute("text", bodyCellText);
+        bodyBand.appendChild(bodyCell1);
+        format.appendChild(headBand);
+        format.appendChild(bodyBand);
+        formats.appendChild(format);
+        grid.appendChild(formats);
+        form.appendChild(grid);
+        return form;
+    }
+
+    private static void assertGridBindingGuardFails(String label, final Element form) {
+        final Fixture fx = buildFixture(form);
+        assertThrowsIllegalStateWithReason(label, GRID_BINDING_CONTRACT_NOT_IMPLEMENTED_REASON, new Runnable() {
+            public void run() {
+                extractWithBindings(form, fx.plan, fx.regions);
+            }
+        });
+    }
+
+    private static void assertGridBindingGuardDoesNotFire(String label, Element form) throws Exception {
+        Fixture fx = buildFixture(form);
+        Element grid = (Element) form.getElementsByTagName("Grid").item(0);
+        List<TargetNodePayload> payloads = extractWithBindings(form, fx.plan, fx.regions);
+        TargetNodePayload payload = findPayload(payloads, structuralIdOf(grid));
+        assertTrue(label + ": payload present (guard did not fire)", payload != null);
+        assertEquals(label + ": item count (1 head + 1 body)", "2", String.valueOf(payload.getItems().size()));
+    }
+
+    /** Slice 102F correction -- CellDef.getRawText()는 trim 이전 source attribute 그대로,
+     * 기존 getText()는 여전히 trim된 normalized 값이어야 한다(두 fact가 섞이면 안 된다). */
+    private static void testGridCellRawTextPreservesWhitespaceWhileNormalizedTextTrims() throws Exception {
+        Document doc = newDocument();
+        Element form = buildSingleFormatGridOnlyForm(doc, null, "Header", " bind:CODE ");
+        Element grid = (Element) form.getElementsByTagName("Grid").item(0);
+
+        GridFormatParser.GridFormatSelection selection = new GridFormatParser().resolveFormat(grid);
+        assertTrue("raw-vs-normalized: resolved", selection.isResolved());
+        GridFormatParser.CellDef bodyCell = selection.getFormat().getBodyCells().get(0);
+        assertEquals("raw-vs-normalized: rawText preserves untouched whitespace",
+                " bind:CODE ", bodyCell.getRawText());
+        assertEquals("raw-vs-normalized: existing getText() still trims (unchanged contract)",
+                "bind:CODE", bodyCell.getText());
+    }
+
+    /** Trigger A -- non-empty binddataset, Body bind: 없음 -&gt; new reason. */
+    private static void testGridBindDatasetOnlyFailsClosedWithNewReason() throws Exception {
+        Document doc = newDocument();
+        Element form = buildSingleFormatGridOnlyForm(doc, "ds1", "Header", "LiteralBody");
+        assertGridBindingGuardFails("grid_binding_trigger_a_binddataset_only", form);
+    }
+
+    /** Trigger B -- binddataset 없음, Body text="bind:CODE" -&gt; new reason. */
+    private static void testGridBodyBindTextOnlyFailsClosedWithNewReason() throws Exception {
+        Document doc = newDocument();
+        Element form = buildSingleFormatGridOnlyForm(doc, null, "Header", "bind:CODE");
+        assertGridBindingGuardFails("grid_binding_trigger_b_body_bind_only", form);
+    }
+
+    /** Trigger A+B combination -- non-empty binddataset AND Body bind: -&gt; 동일한 new reason
+     * (두 signal이 서로 다른 target behavior가 아니므로 reason을 분리하지 않는다). */
+    private static void testGridBindDatasetAndBodyBindCombinationFailsClosedWithSameReason() throws Exception {
+        Document doc = newDocument();
+        Element form = buildSingleFormatGridOnlyForm(doc, "ds1", "Header", "bind:CODE");
+        assertGridBindingGuardFails("grid_binding_trigger_c_combination", form);
+    }
+
+    /** Trigger D -- binddataset="" (명시적 빈 문자열, non-empty 아님), Body bind: 없음 -&gt; guard
+     * 미발동(trim/정규화 없이 length()==0만으로 판정하므로 빈 문자열은 trigger가 아니다). */
+    private static void testGridEmptyBindDatasetDoesNotTriggerGuard() throws Exception {
+        Document doc = newDocument();
+        Element form = buildSingleFormatGridOnlyForm(doc, "", "Header", "LiteralBody");
+        assertGridBindingGuardDoesNotFire("grid_binding_trigger_d_empty_binddataset", form);
+    }
+
+    /** Trigger E -- binddataset 없음, Body text="expr:CODE" -&gt; guard 미발동(expr:는 trigger
+     * 아님, bind:만 trigger). */
+    private static void testGridBodyExprTextDoesNotTriggerGuard() throws Exception {
+        Document doc = newDocument();
+        Element form = buildSingleFormatGridOnlyForm(doc, null, "Header", "expr:CODE");
+        assertGridBindingGuardDoesNotFire("grid_binding_trigger_e_body_expr", form);
+    }
+
+    /** Trigger F -- binddataset 없음, Header text="bind:CODE"(Body는 literal) -&gt; guard 미발동
+     * (Header bind:는 이번 guard의 trigger로 확대하지 않는다, body band만 검사). */
+    private static void testGridHeaderBindTextDoesNotTriggerGuard() throws Exception {
+        Document doc = newDocument();
+        Element form = buildSingleFormatGridOnlyForm(doc, null, "bind:CODE", "LiteralBody");
+        assertGridBindingGuardDoesNotFire("grid_binding_trigger_f_header_bind_only", form);
+    }
+
+    /** Exact-prefix B -- Body text=" bind:CODE"(leading space) -&gt; guard 미발동(raw source
+     * attribute 기준 판정, trim 금지 -- CellDef.getRawText()가 trim 전 값을 그대로 보존한다). */
+    private static void testGridBodyBindTextLeadingSpaceDoesNotTriggerGuard() throws Exception {
+        Document doc = newDocument();
+        Element form = buildSingleFormatGridOnlyForm(doc, null, "Header", " bind:CODE");
+        assertGridBindingGuardDoesNotFire("grid_binding_exact_prefix_leading_space", form);
+    }
+
+    /** Exact-prefix C -- Body text="\tbind:CODE"(leading tab) -&gt; guard 미발동(leading
+     * whitespace 제거 금지, tab도 space와 동일하게 raw exact-prefix 판정 대상이다). */
+    private static void testGridBodyBindTextLeadingTabDoesNotTriggerGuard() throws Exception {
+        Document doc = newDocument();
+        Element form = buildSingleFormatGridOnlyForm(doc, null, "Header", "\tbind:CODE");
+        assertGridBindingGuardDoesNotFire("grid_binding_exact_prefix_leading_tab", form);
+    }
+
+    /** Exact-prefix D -- Body text="Bind:CODE"(대문자 B) -&gt; guard 미발동(case-sensitive exact
+     * match만 trigger, case-insensitive prefix inference는 금지). */
+    private static void testGridBodyBindTextMixedCaseDoesNotTriggerGuard() throws Exception {
+        Document doc = newDocument();
+        Element form = buildSingleFormatGridOnlyForm(doc, null, "Header", "Bind:CODE");
+        assertGridBindingGuardDoesNotFire("grid_binding_exact_prefix_mixed_case", form);
+    }
+
+    /** Exact-prefix E -- Body text="BIND:CODE"(전체 대문자) -&gt; guard 미발동(위와 동일한
+     * case-sensitivity 원칙, 전체 대문자도 정확히 소문자 "bind:"와 달라 trigger 아니다). */
+    private static void testGridBodyBindTextUpperCaseDoesNotTriggerGuard() throws Exception {
+        Document doc = newDocument();
+        Element form = buildSingleFormatGridOnlyForm(doc, null, "Header", "BIND:CODE");
+        assertGridBindingGuardDoesNotFire("grid_binding_exact_prefix_upper_case", form);
+    }
+
+    /** Exact-prefix F -- Body text="bind:CODE "(trailing space) -&gt; guard 발동(prefix 판정은
+     * index 0부터만 확인하므로 trailing 내용은 별도 해석 없이 trigger 여부에 영향 없다). */
+    private static void testGridBodyBindTextTrailingContentStillTriggersGuard() throws Exception {
+        Document doc = newDocument();
+        Element form = buildSingleFormatGridOnlyForm(doc, null, "Header", "bind:CODE ");
+        assertGridBindingGuardFails("grid_binding_exact_prefix_trailing_content", form);
+    }
+
+    /** 회귀 -- non-empty binddataset 없음, Body bind: 없음인 최소 단일 Format Grid는 새 binding
+     * reason으로 실패하지 않는다(기존 GRID_COLUMN behavior가 guard 없는 source에서 동일해야 함). */
+    private static void testGridMinimalNonBindingSingleFormatDoesNotTriggerGuard() throws Exception {
+        Document doc = newDocument();
+        Element form = buildSingleFormatGridOnlyForm(doc, null, "Header", "LiteralBody");
+        assertGridBindingGuardDoesNotFire("grid_binding_non_binding_regression", form);
+    }
+
+    /** 회귀 -- Format definition이 아예 없는 Grid에 binddataset이 있어도(NO_FORMAT_DEFINITION은
+     * non-fatal) 이번 narrow guard의 새 reason으로 실패시키지 않는다(102F scope 밖, standing
+     * AI6_NON_DATALIST_STRUCTURE_ONLY_GRID_EQUIVALENCE_PROVEN=FALSE는 별개로 그대로 유지). */
+    private static void testGridNoFormatDefinitionWithBindDatasetUnaffectedByGuard() throws Exception {
+        Document doc = newDocument();
+        Element form = doc.createElement("Form");
+        doc.appendChild(form);
+        Element grid = doc.createElement("Grid");
+        grid.setAttribute("id", "gridNoFormat");
+        grid.setAttribute("binddataset", "ds1");
+        form.appendChild(grid);
+
+        Fixture fx = buildFixture(form);
+        List<TargetNodePayload> payloads = extractWithBindings(form, fx.plan, fx.regions);
+        TargetNodePayload payload = findPayload(payloads, structuralIdOf(grid));
+        assertTrue("grid_binding_no_format_regression: payload present", payload != null);
+        assertEquals("grid_binding_no_format_regression: item count (NO_FORMAT_DEFINITION stays empty)",
+                "0", String.valueOf(payload.getItems().size()));
+    }
+
+    /** GRID-3 회귀 -- multiple Format + binddataset이 함께 있어도 기존 ambiguous reason이 먼저
+     * 나와야 하고, 새 binding reason이 GRID-3 reason을 덮어쓰면 FAIL이다(precedence 순서 고정). */
+    private static void testGridMultiFormatWithBindDatasetStillReportsAmbiguousReasonFirst() throws Exception {
+        Document doc = newDocument();
+        Element form = buildSingleFormatGridOnlyForm(doc, "ds1", "Header", "bind:CODE");
+        Element grid = (Element) form.getElementsByTagName("Grid").item(0);
+        Element formats = (Element) grid.getElementsByTagName("Formats").item(0);
+        Element secondFormat = doc.createElement("Format");
+        secondFormat.setAttribute("id", "alternate");
+        formats.appendChild(secondFormat);
+
+        Fixture fx = buildFixture(form);
+        boolean threw = false;
+        String reason = null;
+        try {
+            extractWithBindings(form, fx.plan, fx.regions);
+        } catch (IllegalStateException e) {
+            threw = true;
+            reason = e.getMessage();
+        }
+        assertTrue("grid_binding_grid3_precedence_regression: fails closed", threw);
+        assertTrue("grid_binding_grid3_precedence_regression: reports GRID-3 ambiguous reason",
+                reason != null && reason.contains("ambiguous_multi_format_no_proven_selector"));
+        assertTrue("grid_binding_grid3_precedence_regression: new binding reason must not override GRID-3",
+                reason != null && !reason.contains(GRID_BINDING_CONTRACT_NOT_IMPLEMENTED_REASON));
     }
 
     /**
@@ -3134,7 +3376,8 @@ public class TargetPayloadExtractorTest {
         Element bodyCell1 = doc.createElement("Cell");
         bodyCell1.setAttribute("col", "0");
         bodyCell1.setAttribute("row", "0");
-        bodyCell1.setAttribute("text", "bind:col1");
+        // Slice 102F -- 이 peer는 구조 목적뿐이니 "bind:" prefix(새 guard trigger B)를 피한다.
+        bodyCell1.setAttribute("text", "col1");
         bodyBand.appendChild(bodyCell1);
         format.appendChild(headBand);
         format.appendChild(bodyBand);

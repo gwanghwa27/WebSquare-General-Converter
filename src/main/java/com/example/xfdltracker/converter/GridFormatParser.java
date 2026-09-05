@@ -255,7 +255,10 @@ public class GridFormatParser {
             def.row = rawRow.length() == 0 ? 0 : Integer.parseInt(rawRow);
             def.colSpan = rawColSpan.length() == 0 ? 1 : Integer.parseInt(rawColSpan);
             def.rowSpan = rawRowSpan.length() == 0 ? 1 : Integer.parseInt(rawRowSpan);
-            def.text = trim(cell.getAttribute("text"));
+            // Slice 102F correction -- rawText는 trim 이전 source attribute 그대로 보존한다(exact
+            // prefix guard 전용). 기존 getText() normalized(trim) 계약은 변경하지 않는다.
+            def.rawText = cell.getAttribute("text");
+            def.text = trim(def.rawText);
             def.displayType = trim(cell.getAttribute("displaytype"));
             def.editType = trim(cell.getAttribute("edittype"));
             def.align = trim(cell.getAttribute("align"));
@@ -406,6 +409,7 @@ public class GridFormatParser {
         private int colSpan;
         private int rowSpan;
         private String text;
+        private String rawText;
         private String displayType;
         private String editType;
         private String align;
@@ -432,6 +436,12 @@ public class GridFormatParser {
 
         public String getText() {
             return text;
+        }
+
+        /** Slice 102F correction -- trim되지 않은 source text attribute 원본. exact-prefix
+         * binding guard 전용이며, 기존 getText()의 normalized 값과는 절대 섞이지 않는다. */
+        public String getRawText() {
+            return rawText == null ? "" : rawText;
         }
 
         public String getDisplayType() {
