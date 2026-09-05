@@ -129,4 +129,19 @@ public class SemanticRegionResult {
     public Map<String, SourceOptionResolution> getOptionResolutionBySourceComponentStructuralId() {
         return optionResolutionBySourceComponentStructuralId;
     }
+
+    /**
+     * TAB_CONTROL 전용 static 구조 주소 evidence -- source id/ordinal을 typed로 보존한다. TAB_CONTROL이
+     * 아닌 region은 항상 null이며, target runtime id/target XML authority가 아니다.
+     */
+    private TabControlStaticStructureEvidence tabControlStaticStructureEvidence;
+
+    public TabControlStaticStructureEvidence getTabControlStaticStructureEvidence() {
+        return tabControlStaticStructureEvidence;
+    }
+
+    public void setTabControlStaticStructureEvidence(
+            TabControlStaticStructureEvidence tabControlStaticStructureEvidence) {
+        this.tabControlStaticStructureEvidence = tabControlStaticStructureEvidence;
+    }
 }

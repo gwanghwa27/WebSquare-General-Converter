@@ -8,6 +8,8 @@ import com.example.xfdltracker.model.XfdlAnalysisResult;
 import com.example.xfdltracker.semantic.SemanticRegionResult;
 import com.example.xfdltracker.semantic.SourcePayloadEvidenceItem;
 import com.example.xfdltracker.semantic.SourceStructuralIdentity;
+import com.example.xfdltracker.semantic.StaticTabPageEntry;
+import com.example.xfdltracker.semantic.TabControlStaticStructureEvidence;
 import com.example.xfdltracker.semantic.TabPageMembership;
 
 import org.w3c.dom.Element;
@@ -766,14 +768,20 @@ public class SemanticRegionSegmenter {
 
     /**
      * TAB_CONTROL 판정과 독립적으로 evidence만 채운다(판정 자체에 영향 없음). 직계 Tabpage만
-     * 대상으로 하며, {@code tab_count}는 같은 {@code pages} 크기를 그대로 옮긴 값이다.
+     * 대상으로 하며, {@code tab_count}는 같은 {@code pages} 크기를 그대로 옮긴 값이다. 같은
+     * {@code pages}/index에서 typed static structure evidence도 함께 materialize한다.
      */
     private void applyTabControlEvidence(SemanticRegionResult result, Element tabSource) {
         List<Element> pages = directTabpages(tabSource);
+        List<StaticTabPageEntry> orderedStaticPages = new ArrayList<StaticTabPageEntry>();
         for (int i = 0; i < pages.size(); i++) {
             addTabLabelEvidenceItem(result, result.getSourceStructuralId(), pages.get(i), i);
+            orderedStaticPages.add(new StaticTabPageEntry(
+                    pages.get(i).getAttribute("id"), SourceStructuralIdentity.build(pages.get(i)), i));
         }
         result.getParameters().put("tab_count", Integer.valueOf(pages.size()));
+        result.setTabControlStaticStructureEvidence(new TabControlStaticStructureEvidence(
+                tabSource.getAttribute("id"), result.getSourceStructuralId(), orderedStaticPages));
     }
 
     /** 직계 Tabpage, 또는 직계 Tabpages의 자식 Tabpage만 모은다(더 깊은 중첩은 별도 TAB_CONTROL로 평가). */

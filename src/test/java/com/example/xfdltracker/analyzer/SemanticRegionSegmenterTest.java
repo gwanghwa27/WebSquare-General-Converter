@@ -14,6 +14,8 @@ import com.example.xfdltracker.payload.TargetPayloadExtractor;
 import com.example.xfdltracker.semantic.SemanticRegionResult;
 import com.example.xfdltracker.semantic.SourcePayloadEvidenceItem;
 import com.example.xfdltracker.semantic.SourceStructuralIdentity;
+import com.example.xfdltracker.semantic.StaticTabPageEntry;
+import com.example.xfdltracker.semantic.TabControlStaticStructureEvidence;
 
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
@@ -50,6 +52,16 @@ public class SemanticRegionSegmenterTest {
         testNestedTabScopeNotMixed();
         testNestedTabScopeTabCountNotMixed();
         testPlainComponentsNotMisdetected();
+
+        testTabControlStaticStructureEvidenceExactFieldsSingleDirectPage();
+        testTabControlStaticStructureEvidenceViaTabpagesWrapperExactFields();
+        testTabControlStaticStructureEvidenceOrderMatchesTabLabelEvidenceOrder();
+        testNonTabControlRegionTabControlStaticStructureEvidenceIsNull();
+        testTabControlStaticStructureEvidenceDoesNotChangeExistingTabCountOrLabelEvidence();
+        testNestedTabControlEachPreservesOwnDirectStaticPagesOnly();
+        testTabControlStaticStructureEvidencePreservesBlankTabControlId();
+        testTabControlStaticStructureEvidencePreservesBlankTabPageId();
+        testTabControlStaticStructureEvidencePreservesRawIdWhitespaceNoTrim();
 
         testSplitLayoutExactRatioRegion();
         testSplitLayoutExactThirdsRegion();
@@ -343,6 +355,224 @@ public class SemanticRegionSegmenterTest {
                 "1", String.valueOf(outer.getParameters().get("tab_count")));
         assertEquals("nested-tab-count: inner tab_count is exactly its own 2 direct Tabpages",
                 "2", String.valueOf(inner.getParameters().get("tab_count")));
+    }
+
+    // ==== TAB_CONTROL static 구조 typed evidence(Slice 101H) ======================================
+
+    /** direct Tabpage 1개 -> typed evidence가 exact tabControlSourceId/structuralId/page 필드를 보존한다. */
+    private static void testTabControlStaticStructureEvidenceExactFieldsSingleDirectPage() throws Exception {
+        Document doc = newDocument();
+        Element tab = doc.createElement("Tab");
+        tab.setAttribute("id", "tabMain");
+        Element page = doc.createElement("Tabpage");
+        page.setAttribute("id", "pageA");
+        tab.appendChild(page);
+        doc.appendChild(tab);
+
+        List<SemanticRegionResult> results = new SemanticRegionSegmenter().segment(tab);
+        SemanticRegionResult r = results.get(0);
+        TabControlStaticStructureEvidence evidence = r.getTabControlStaticStructureEvidence();
+
+        assertTrue("static-structure-single: evidence non-null", evidence != null);
+        assertEquals("static-structure-single: tabControlSourceId", "tabMain", evidence.getTabControlSourceId());
+        assertEquals("static-structure-single: tabControlStructuralId matches SourceStructuralIdentity.build(tab)",
+                SourceStructuralIdentity.build(tab), evidence.getTabControlStructuralId());
+        assertEquals("static-structure-single: orderedStaticPages size",
+                "1", String.valueOf(evidence.getOrderedStaticPages().size()));
+        StaticTabPageEntry entry = evidence.getOrderedStaticPages().get(0);
+        assertEquals("static-structure-single: page tabPageSourceId", "pageA", entry.getTabPageSourceId());
+        assertEquals("static-structure-single: page tabPageStructuralId matches SourceStructuralIdentity.build(page)",
+                SourceStructuralIdentity.build(page), entry.getTabPageStructuralId());
+        assertEquals("static-structure-single: pageOrdinal", "0", String.valueOf(entry.getPageOrdinal()));
+    }
+
+    /** Tabpages wrapper 안 3개 page -> dense 0..2 ordinal, exact raw id/structuralId 보존. */
+    private static void testTabControlStaticStructureEvidenceViaTabpagesWrapperExactFields() throws Exception {
+        Document doc = newDocument();
+        Element tab = doc.createElement("Tab");
+        tab.setAttribute("id", "tabWrap");
+        Element tabpages = doc.createElement("Tabpages");
+        Element[] pages = new Element[3];
+        for (int i = 0; i < 3; i++) {
+            pages[i] = doc.createElement("Tabpage");
+            pages[i].setAttribute("id", "p" + i);
+            tabpages.appendChild(pages[i]);
+        }
+        tab.appendChild(tabpages);
+        doc.appendChild(tab);
+
+        List<SemanticRegionResult> results = new SemanticRegionSegmenter().segment(tab);
+        TabControlStaticStructureEvidence evidence = results.get(0).getTabControlStaticStructureEvidence();
+
+        assertEquals("static-structure-wrapper: orderedStaticPages size",
+                "3", String.valueOf(evidence.getOrderedStaticPages().size()));
+        for (int i = 0; i < 3; i++) {
+            StaticTabPageEntry entry = evidence.getOrderedStaticPages().get(i);
+            assertEquals("static-structure-wrapper: page[" + i + "] tabPageSourceId",
+                    "p" + i, entry.getTabPageSourceId());
+            assertEquals("static-structure-wrapper: page[" + i + "] tabPageStructuralId",
+                    SourceStructuralIdentity.build(pages[i]), entry.getTabPageStructuralId());
+            assertEquals("static-structure-wrapper: page[" + i + "] pageOrdinal dense",
+                    String.valueOf(i), String.valueOf(entry.getPageOrdinal()));
+        }
+    }
+
+    /** orderedStaticPages 순서가 기존 tab_label payloadEvidence 순서와 정확히 1:1 대응해야 한다. */
+    private static void testTabControlStaticStructureEvidenceOrderMatchesTabLabelEvidenceOrder() throws Exception {
+        Document doc = newDocument();
+        Element tab = doc.createElement("Tab");
+        tab.setAttribute("id", "tabOrdered");
+        for (int i = 0; i < 4; i++) {
+            Element page = doc.createElement("Tabpage");
+            page.setAttribute("id", "page" + i);
+            page.setAttribute("text", "Label" + i);
+            tab.appendChild(page);
+        }
+        doc.appendChild(tab);
+
+        List<SemanticRegionResult> results = new SemanticRegionSegmenter().segment(tab);
+        SemanticRegionResult r = results.get(0);
+        TabControlStaticStructureEvidence evidence = r.getTabControlStaticStructureEvidence();
+
+        assertEquals("static-structure-order: payloadEvidence count",
+                "4", String.valueOf(r.getPayloadEvidence().size()));
+        for (int i = 0; i < 4; i++) {
+            SourcePayloadEvidenceItem labelItem = r.getPayloadEvidence().get(i);
+            StaticTabPageEntry entry = evidence.getOrderedStaticPages().get(i);
+            assertEquals("static-structure-order: index " + i + " sourceComponentStructuralId matches",
+                    labelItem.getSourceComponentStructuralId(), entry.getTabPageStructuralId());
+            assertEquals("static-structure-order: index " + i + " sourceOrder matches pageOrdinal",
+                    String.valueOf(labelItem.getSourceOrder()), String.valueOf(entry.getPageOrdinal()));
+        }
+    }
+
+    /** TAB_CONTROL이 아닌 region(GRID)의 typed evidence는 항상 null이어야 한다. */
+    private static void testNonTabControlRegionTabControlStaticStructureEvidenceIsNull() throws Exception {
+        Document doc = newDocument();
+        Element grid = doc.createElement("Grid");
+        grid.setAttribute("id", "grdX");
+        doc.appendChild(grid);
+
+        List<SemanticRegionResult> results = new SemanticRegionSegmenter().segment(grid);
+        assertTrue("static-structure-non-tab: GRID evidence field is null",
+                results.get(0).getTabControlStaticStructureEvidence() == null);
+    }
+
+    /** typed evidence 추가가 기존 tab_count/tab_label evidence 값을 전혀 바꾸지 않아야 한다. */
+    private static void testTabControlStaticStructureEvidenceDoesNotChangeExistingTabCountOrLabelEvidence()
+            throws Exception {
+        Document doc = newDocument();
+        Element tab = doc.createElement("Tab");
+        tab.setAttribute("id", "tabRegress");
+        for (int i = 0; i < 5; i++) {
+            Element page = doc.createElement("Tabpage");
+            page.setAttribute("id", "p" + i);
+            tab.appendChild(page);
+        }
+        doc.appendChild(tab);
+
+        List<SemanticRegionResult> results = new SemanticRegionSegmenter().segment(tab);
+        SemanticRegionResult r = results.get(0);
+
+        assertEquals("static-structure-regress: tab_count unchanged",
+                "5", String.valueOf(r.getParameters().get("tab_count")));
+        assertEquals("static-structure-regress: tab_label evidence count unchanged",
+                "5", String.valueOf(r.getPayloadEvidence().size()));
+        assertTrue("static-structure-regress: typed evidence also present",
+                r.getTabControlStaticStructureEvidence() != null);
+    }
+
+    /** 중첩 TAB_CONTROL 각각은 자기 자신의 direct static page만 typed evidence에 보존한다(섞이지 않음). */
+    private static void testNestedTabControlEachPreservesOwnDirectStaticPagesOnly() throws Exception {
+        Document doc = newDocument();
+        Element outerTab = doc.createElement("Tab");
+        outerTab.setAttribute("id", "outerTab");
+        Element tabpages = doc.createElement("Tabpages");
+        Element outerPage = doc.createElement("Tabpage");
+        outerPage.setAttribute("id", "outerPage1");
+        Element innerTab = doc.createElement("Tab");
+        innerTab.setAttribute("id", "innerTab");
+        Element innerPage = doc.createElement("Tabpage");
+        innerPage.setAttribute("id", "innerPage1");
+
+        innerTab.appendChild(innerPage);
+        outerPage.appendChild(innerTab);
+        tabpages.appendChild(outerPage);
+        outerTab.appendChild(tabpages);
+        doc.appendChild(outerTab);
+
+        List<SemanticRegionResult> results = new SemanticRegionSegmenter().segment(outerTab);
+        SemanticRegionResult outer = results.get(0);
+        SemanticRegionResult inner = results.get(1);
+
+        TabControlStaticStructureEvidence outerEvidence = outer.getTabControlStaticStructureEvidence();
+        TabControlStaticStructureEvidence innerEvidence = inner.getTabControlStaticStructureEvidence();
+        assertEquals("nested-static-structure: outer tabControlSourceId", "outerTab",
+                outerEvidence.getTabControlSourceId());
+        assertEquals("nested-static-structure: inner tabControlSourceId", "innerTab",
+                innerEvidence.getTabControlSourceId());
+        assertEquals("nested-static-structure: outer has exactly its own 1 page",
+                "1", String.valueOf(outerEvidence.getOrderedStaticPages().size()));
+        assertEquals("nested-static-structure: inner has exactly its own 1 page",
+                "1", String.valueOf(innerEvidence.getOrderedStaticPages().size()));
+        assertEquals("nested-static-structure: outer page is outerPage1",
+                "outerPage1", outerEvidence.getOrderedStaticPages().get(0).getTabPageSourceId());
+        assertEquals("nested-static-structure: inner page is innerPage1",
+                "innerPage1", innerEvidence.getOrderedStaticPages().get(0).getTabPageSourceId());
+    }
+
+    /** id 속성이 없는 TabControl -> tabControlSourceId는 exact empty String으로 보존되고 실패하지 않는다. */
+    private static void testTabControlStaticStructureEvidencePreservesBlankTabControlId() throws Exception {
+        Document doc = newDocument();
+        Element tab = doc.createElement("Tab");
+        Element page = doc.createElement("Tabpage");
+        page.setAttribute("id", "onlyPage");
+        tab.appendChild(page);
+        doc.appendChild(tab);
+
+        List<SemanticRegionResult> results = new SemanticRegionSegmenter().segment(tab);
+        TabControlStaticStructureEvidence evidence = results.get(0).getTabControlStaticStructureEvidence();
+
+        assertTrue("static-structure-blank-tab: evidence non-null despite blank id", evidence != null);
+        assertEquals("static-structure-blank-tab: tabControlSourceId is exact empty string",
+                "", evidence.getTabControlSourceId());
+    }
+
+    /** id 속성이 없는 Tabpage -> tabPageSourceId는 exact empty String으로 보존되고 실패하지 않는다. */
+    private static void testTabControlStaticStructureEvidencePreservesBlankTabPageId() throws Exception {
+        Document doc = newDocument();
+        Element tab = doc.createElement("Tab");
+        tab.setAttribute("id", "tabBlankPage");
+        Element page = doc.createElement("Tabpage");
+        tab.appendChild(page);
+        doc.appendChild(tab);
+
+        List<SemanticRegionResult> results = new SemanticRegionSegmenter().segment(tab);
+        TabControlStaticStructureEvidence evidence = results.get(0).getTabControlStaticStructureEvidence();
+
+        assertEquals("static-structure-blank-page: orderedStaticPages size", "1",
+                String.valueOf(evidence.getOrderedStaticPages().size()));
+        assertEquals("static-structure-blank-page: tabPageSourceId is exact empty string",
+                "", evidence.getOrderedStaticPages().get(0).getTabPageSourceId());
+    }
+
+    /** id 속성에 선행/후행 공백이 있어도 trim 없이 raw 그대로 보존해야 한다. */
+    private static void testTabControlStaticStructureEvidencePreservesRawIdWhitespaceNoTrim() throws Exception {
+        Document doc = newDocument();
+        Element tab = doc.createElement("Tab");
+        tab.setAttribute("id", "  tabX  ");
+        Element page = doc.createElement("Tabpage");
+        page.setAttribute("id", "  pageY  ");
+        tab.appendChild(page);
+        doc.appendChild(tab);
+
+        List<SemanticRegionResult> results = new SemanticRegionSegmenter().segment(tab);
+        TabControlStaticStructureEvidence evidence = results.get(0).getTabControlStaticStructureEvidence();
+
+        assertEquals("static-structure-no-trim: tabControlSourceId raw with whitespace preserved",
+                "  tabX  ", evidence.getTabControlSourceId());
+        assertEquals("static-structure-no-trim: tabPageSourceId raw with whitespace preserved",
+                "  pageY  ", evidence.getOrderedStaticPages().get(0).getTabPageSourceId());
     }
 
     /** 일반 Div/Static/Button -> 오검출 없음(결과 0건). */
