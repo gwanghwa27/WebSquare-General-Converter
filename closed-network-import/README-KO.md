@@ -61,6 +61,14 @@ documentation(`README.md`, `README-OFFLINE.md`,
 capability를 승인하는 authority는 아니다. 이 문서에 라운드별 변경 파일
 목록을 별도로 유지하지 않는다.
 
+이 저장소가 반입하는 accepted architecture의 target WebSquare 플랫폼은 **WebSquare AI 6.0**이다
+-- WebSquare AI 6.0 major contract를 target으로 하며, exact maintenance build는 현재 pin하지
+않는다(`TARGET_WEBSQUARE_PLATFORM = WebSquare AI 6.0`, `EXACT_MAINTENANCE_BUILD_PINNED = FALSE`).
+WebSquare AI 6.0 공식 API/documentation이 이 target WebSquare contract의 1차 authority이며, 과거
+WebSquare SP 계열 또는 legacy runtime 결과(`OFFLINE-IMPORT-MANIFEST.md`, `FROZEN-DO-NOT-MODIFY.md`
+등에 보존된 historical evidence)는 point-in-time compatibility evidence일 뿐 현재 target contract
+authority가 아니며, 이 historical 기록 자체는 수정하지 않고 원본 그대로 보존한다.
+
 ## 4. Canonical contents.css에 대해 -- 실제 CSS는 Git 미추적, metadata만 보관
 
 `resources/target-websquare/WebContent/assets/css/contents-css-metadata.json`에

@@ -11,6 +11,14 @@ Maven/Gradle/외부 JAR 의존 없이, JDK 1.8.0 family(예: 1.8.0_111/1.8.0_503
 버전 고정 없음)만으로 compile/convert/verify할 수 있다. 배포용 컴파일 산출물(binary)이 아니라
 폐쇄망에서 직접 컴파일하고 실행할 수 있는 source project로 구성되어 있다.
 
+이 프로젝트의 target WebSquare 플랫폼은 **WebSquare AI 6.0**이다 — WebSquare AI 6.0 major
+contract를 target으로 하며, exact maintenance build는 현재 pin하지 않는다
+(`TARGET_WEBSQUARE_PLATFORM = WebSquare AI 6.0`, `EXACT_MAINTENANCE_BUILD_PINNED = FALSE`).
+WebSquare AI 6.0 공식 API/documentation이 이 target WebSquare contract의 1차 authority이며,
+과거 WebSquare SP 계열 또는 legacy runtime 결과는 historical/compatibility evidence일 뿐
+현재 target contract authority는 아니다
+(`HISTORICAL_SP_SERIES_EVIDENCE_IS_CURRENT_AI6_AUTHORITY = FALSE`).
+
 ## 2. Accepted Pipeline
 
 현재 accepted 표준 변환 경로는 다음 단계로 구성된다.
@@ -70,7 +78,9 @@ runtime profile을 발명하지 않는다.
 runtime fallback(`XPlatformProjectConverter`, `WebSquareGenerator` 등)에 의존하지 않는다 — 이
 경계는 architecture boundary이며, 이 문서는 과거 프로젝트의 역사나 repository provenance를 현재
 제품 소개의 중심 내용으로 다루지 않는다. 과거 이력 자체는 `OFFLINE-IMPORT-MANIFEST.md`(historical
-evidence)와 `FROZEN-DO-NOT-MODIFY.md`(historical policy record)에 별도로 보존되어 있다.
+evidence)와 `FROZEN-DO-NOT-MODIFY.md`(historical policy record)에 별도로 보존되어 있다. 이
+historical 기록은 현재 target인 WebSquare AI 6.0 이전 시점(WebSquare SP 계열)의 point-in-time
+evidence이며, 원본 그대로 보존되어 있고 현재 target contract authority가 아니다.
 
 ## 7. Closed Contract Limitations
 

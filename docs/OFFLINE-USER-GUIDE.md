@@ -18,6 +18,13 @@ offline verifier로 결과를 검증하는 전체 절차를 설명한다.
 **소스 프로젝트**다. 배포용 컴파일 산출물(binary)이 아니라, 폐쇄망에서 직접 컴파일하고 실행할 수
 있는 **source project**로 구성되어 있다.
 
+이 프로젝트가 생성하는 WebSquare XML의 target 플랫폼은 **WebSquare AI 6.0**이다 -- WebSquare AI
+6.0 major contract를 target으로 하며, exact maintenance build는 현재 pin하지 않는다
+(`TARGET_WEBSQUARE_PLATFORM = WebSquare AI 6.0`, `EXACT_MAINTENANCE_BUILD_PINNED = FALSE`).
+WebSquare AI 6.0 공식 API/documentation이 이 target WebSquare contract의 1차 authority이며, 과거
+WebSquare SP 계열 또는 legacy runtime 결과는 historical/compatibility evidence일 뿐 현재 target
+contract authority는 아니다.
+
 ## 2-1. 표준 변환 경로: TargetWebSquarePipeline (Slice 98BH)
 
 **이 절이 현재 표준 조작 경로다.** 항목 9(`convert-sample.*`)와 항목 10의 legacy 8단계 표는 이 프로젝트의
@@ -161,7 +168,9 @@ contract이며, `.sh`는 그 gate를 재구현하지 않고 다만 대신 못 �
 나온 과거 freeze/baseline 이력(예: Phase4 계열 baseline과 그로부터 파생됐던 이전 candidate 상태)은
 이 가이드의 현재 authority가 아니며, 그 historical fact 자체는 `OFFLINE-IMPORT-MANIFEST.md`(해당
 freeze 시점의 historical evidence)와 `FROZEN-DO-NOT-MODIFY.md`(과거 frozen snapshot의 historical
-policy record)에 그대로 보존되어 있다.
+policy record)에 그대로 보존되어 있다. 이 historical 기록은 현재 target인 WebSquare AI 6.0 이전
+시점(WebSquare SP 계열)의 point-in-time evidence이며, 원본 그대로 보존되어 있고 현재 target
+contract authority가 아니다.
 
 ## 4. 필수 환경
 
